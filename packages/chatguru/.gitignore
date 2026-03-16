@@ -1,0 +1,23 @@
+node_modules/
+.env
+
+# Dados gerados
+session.json
+scan-results.json
+
+# Backups de maquina
+*-ERICLUCIANO-PC*
+*-*-PC.*
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude
+.claude/

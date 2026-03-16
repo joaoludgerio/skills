@@ -1,0 +1,26 @@
+node_modules/
+.env
+
+# Tokens OAuth
+tokens.json
+
+# Arquivos de teste local
+test-*.mjs
+test-*.js
+
+# Backups de maquina
+*-ERICLUCIANO-PC*
+*-*-PC.*
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude
+.claude/

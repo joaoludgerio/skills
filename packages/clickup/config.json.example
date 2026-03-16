@@ -1,0 +1,16 @@
+{
+  "api_key": "pk_SEU_TOKEN_AQUI",
+  "workspace_id": "",
+  "workspace_name": "",
+  "default_list_id": null,
+  "default_list_name": null,
+  "user_id": "",
+  "user_name": "",
+  "user_email": "",
+  "defaults": {
+    "assignee_self": true,
+    "priority": 3,
+    "tags": ["via-claude"],
+    "due_date_offset_days": 1
+  }
+}

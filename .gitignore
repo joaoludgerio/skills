@@ -1,0 +1,7 @@
+node_modules/
+.env
+.token-cache.json
+.rate-limit.json
+session.json
+scan-results.json
+*.log

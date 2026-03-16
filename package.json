@@ -1,0 +1,15 @@
+{
+  "name": "expert-mcps",
+  "version": "1.0.0",
+  "description": "MCPs da Expert Integrado — Pipedrive, ClickUp, Zoom, Outlook, ChatGuru e WhatsApp",
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Expert Integrado",
+  "license": "MIT",
+  "private": true
+}
