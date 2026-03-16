@@ -193,13 +193,13 @@ const CONNECTIONS = [
       const modeAnswer = await askFn("  Você tem uma chave de API do ChatGuru? (s/N): ");
 
       if (modeAnswer.trim().toLowerCase() === "s") {
-        creds.CHATGURU_MODE = "full";
+        creds.CHATGURU_MODE = "api";
         const apiKey = await askFn("  Cole sua chave de API do ChatGuru: ");
         if (apiKey.trim()) {
           creds.CHATGURU_API_KEY = apiKey.trim();
         }
       } else {
-        creds.CHATGURU_MODE = "readonly";
+        creds.CHATGURU_MODE = "navegador";
       }
 
       const server = await askFn("  Em qual servidor do ChatGuru você acessa? (ex: 13, 17): ");
@@ -209,10 +209,10 @@ const CONNECTIONS = [
     },
     postInstall: async (mcpDir, credentials) => {
       const server = credentials?.CHATGURU_SERVER || "17";
-      const mode = credentials?.CHATGURU_MODE || "readonly";
+      const mode = credentials?.CHATGURU_MODE || "navegador";
 
       print("");
-      if (mode === "readonly") {
+      if (mode === "navegador") {
         print("  Modo: padrao (leitura + envio de mensagens via navegador).");
       } else {
         print("  Modo: completo (leitura + envio + API do ChatGuru).");

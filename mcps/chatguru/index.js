@@ -19,25 +19,29 @@ import {
 
 // ─── CONFIGURAÇÃO ────────────────────────────────────────────────────────────
 
-const CHATGURU_MODE = (process.env.CHATGURU_MODE || "full").toLowerCase();
+const CHATGURU_MODE_RAW = (process.env.CHATGURU_MODE || "api").toLowerCase();
+// Retrocompatibilidade: "readonly" = "navegador", "full" = "api"
+const IS_BROWSER_MODE = CHATGURU_MODE_RAW === "navegador" || CHATGURU_MODE_RAW === "readonly";
+const CHATGURU_MODE = IS_BROWSER_MODE ? "navegador" : "api";
+
 const API_KEY = process.env.CHATGURU_API_KEY;
 const ACCOUNT_ID = process.env.CHATGURU_ACCOUNT_ID;
 const PHONE_ID = process.env.CHATGURU_PHONE_ID;
 const SERVER = process.env.CHATGURU_SERVER;
 const BASE_URL = SERVER ? `https://s${SERVER}.expertintegrado.app/api/v1` : "";
 
-if (CHATGURU_MODE !== "readonly") {
+if (!IS_BROWSER_MODE) {
   if (!API_KEY || !ACCOUNT_ID || !PHONE_ID || !SERVER) {
     console.error(
-      "ERRO: Variáveis de ambiente obrigatórias não definidas.\n" +
+      "ERRO: Variaveis de ambiente obrigatorias nao definidas.\n" +
       "Defina: CHATGURU_API_KEY, CHATGURU_ACCOUNT_ID, CHATGURU_PHONE_ID, CHATGURU_SERVER\n" +
-      "Ou use CHATGURU_MODE=readonly para modo somente leitura (Playwright)."
+      "Ou use CHATGURU_MODE=navegador para modo navegador (Playwright)."
     );
     process.exit(1);
   }
 } else {
   if (!SERVER) {
-    console.error("ERRO: CHATGURU_SERVER é obrigatório mesmo no modo readonly.");
+    console.error("ERRO: CHATGURU_SERVER e obrigatorio mesmo no modo navegador.");
     process.exit(1);
   }
 }
@@ -165,7 +169,7 @@ const server = new McpServer({
 
 // ─── TOOLS API (apenas no modo full) ────────────────────────────────────────
 
-if (CHATGURU_MODE !== "readonly") {
+if (!IS_BROWSER_MODE) {
 
 // ─── TOOL 1: ENVIAR MENSAGEM ────────────────────────────────────────────────
 
@@ -363,7 +367,7 @@ server.tool(
   }
 );
 
-} // fim do bloco CHATGURU_MODE !== "readonly"
+} // fim do bloco !IS_BROWSER_MODE
 
 // ─── TOOLS PLAYWRIGHT (disponíveis em todos os modos) ───────────────────────
 
@@ -1085,23 +1089,17 @@ server.tool(
         });
 
         // Localizar campo de texto da mensagem
-        // O ChatGuru usa um textarea ou contenteditable dentro da area de composicao
+        // O ChatGuru usa textarea#input_message como campo principal de composicao
         const inputSelectors = [
+          "textarea#input_message",
           "textarea.msg-input",
           "textarea#msg-input",
-          "textarea[placeholder]",
-          ".msg-input textarea",
-          ".chat-input textarea",
-          "[contenteditable='true'].msg-input",
-          "[contenteditable='true']",
-          "textarea",
         ];
 
         let inputField = null;
         for (const selector of inputSelectors) {
           inputField = await page.$(selector);
           if (inputField) {
-            // Verificar se esta visivel e no contexto certo (nao um campo de busca)
             const isVisible = await inputField.isVisible().catch(() => false);
             if (isVisible) break;
             inputField = null;
