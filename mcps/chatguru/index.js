@@ -6,6 +6,16 @@ import { readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import {
+  checkRateLimit,
+  checkDailyRecipientLimit,
+  checkMessageLength,
+  checkAntiLoop,
+  checkSensitiveContent,
+  sendDelay,
+  logAudit,
+  SEND_DELAY_SECONDS,
+} from "./guardrails.js";
 
 // ─── CONFIGURAÇÃO ────────────────────────────────────────────────────────────
 
@@ -988,6 +998,169 @@ server.tool(
     } catch (err) {
       await browser.close().catch(() => {});
       return { content: [{ type: "text", text: `Erro ao listar chats: ${err.message}` }] };
+    }
+  }
+);
+
+// ─── TOOL 14: ENVIAR MENSAGEM VIA BROWSER (PLAYWRIGHT) ──────────────────────
+
+server.tool(
+  "chatguru_send_message_browser",
+  "Envia mensagem de texto em um chat do ChatGuru via navegador (Playwright). " +
+  "Disponivel para todos os usuarios (nao precisa de API key). " +
+  "IMPORTANTE: Use confirmed=false primeiro para pre-visualizar a mensagem, " +
+  "depois confirmed=true para enviar de fato. " +
+  "Limites: 10 msgs/min, 50 destinatarios/dia, max 2000 chars. " +
+  "Latencia: ~15s quando confirmed=true.",
+  {
+    chat_id: z.string().describe(
+      "ID do chat no ChatGuru (hash de 24 caracteres, ex: 686ede5b2333cb755c57d1a5). " +
+      "Obtido via chatguru_get_chat_link, chatguru_list_chats ou chatguru_read_messages."
+    ),
+    text: z.string().describe("Texto da mensagem a enviar. Maximo 2000 caracteres."),
+    confirmed: z.boolean().optional().default(false).describe(
+      "Se false (padrao): retorna preview da mensagem sem enviar. " +
+      "Se true: envia a mensagem de fato apos validacoes de seguranca."
+    ),
+  },
+  async ({ chat_id, text, confirmed }) => {
+    try {
+      // ── Validacoes de seguranca (guardrails) ──
+      checkMessageLength(text, confirmed);
+      checkSensitiveContent(text, confirmed);
+
+      if (confirmed) {
+        checkRateLimit();
+        checkDailyRecipientLimit(chat_id);
+        checkAntiLoop(chat_id, text);
+      }
+
+      // ── Preview (confirmed=false) ──
+      if (!confirmed) {
+        const preview = [
+          "PREVIEW — Mensagem nao enviada ainda",
+          "",
+          `Chat: ${chat_id}`,
+          `Link: https://s${SERVER}.expertintegrado.app/chats#${chat_id}`,
+          `Tamanho: ${text.length} caracteres`,
+          "",
+          "Texto:",
+          "─".repeat(40),
+          text,
+          "─".repeat(40),
+          "",
+          "Para enviar, chame novamente com confirmed: true.",
+        ].join("\n");
+
+        return { content: [{ type: "text", text: preview }] };
+      }
+
+      // ── Envio via Playwright (confirmed=true) ──
+
+      const session = await openBrowserWithSession();
+      if (session.error) return { content: [{ type: "text", text: session.error }] };
+
+      const { browser, page } = session;
+      try {
+        const chatUrl = `https://s${SERVER}.expertintegrado.app/chats#${chat_id}`;
+        await page.goto(chatUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+        await sleep(5000); // Aguardar SPA carregar
+
+        // Verificar se sessao expirou
+        if (isLoginPage(page.url())) {
+          await browser.close();
+          return { content: [{ type: "text", text: `Sessao expirada. Execute \`CHATGURU_SERVER=${SERVER} node login.js\` para renovar.` }] };
+        }
+
+        // Aguardar container de mensagens (indica que o chat carregou)
+        await page.waitForSelector("#chat_messages_app", { timeout: 15000 }).catch(() => null);
+        await sleep(2000);
+
+        // Remover modais que possam bloquear interacao
+        await page.evaluate(() => {
+          const beamer = document.querySelector("#beamerPushModal");
+          if (beamer) beamer.remove();
+          document.querySelectorAll(".modal.show, .modal.active, [role='dialog'].active").forEach(el => el.remove());
+          document.querySelectorAll(".modal-backdrop, .push-overlay").forEach(el => el.remove());
+        });
+
+        // Localizar campo de texto da mensagem
+        // O ChatGuru usa um textarea ou contenteditable dentro da area de composicao
+        const inputSelectors = [
+          "textarea.msg-input",
+          "textarea#msg-input",
+          "textarea[placeholder]",
+          ".msg-input textarea",
+          ".chat-input textarea",
+          "[contenteditable='true'].msg-input",
+          "[contenteditable='true']",
+          "textarea",
+        ];
+
+        let inputField = null;
+        for (const selector of inputSelectors) {
+          inputField = await page.$(selector);
+          if (inputField) {
+            // Verificar se esta visivel e no contexto certo (nao um campo de busca)
+            const isVisible = await inputField.isVisible().catch(() => false);
+            if (isVisible) break;
+            inputField = null;
+          }
+        }
+
+        if (!inputField) {
+          await browser.close();
+          return { content: [{ type: "text", text: "Erro: campo de mensagem nao encontrado. A estrutura da pagina pode ter mudado. Reporte ao administrador." }] };
+        }
+
+        // Delay de seguranca (janela de cancelamento)
+        await sendDelay();
+
+        // Preencher e enviar
+        // Usar fill() para colar o texto de uma vez (preserva quebras de linha)
+        await inputField.click();
+        await sleep(300);
+        await inputField.fill(text);
+        await sleep(500);
+
+        // Enter envia a mensagem no ChatGuru (como WhatsApp)
+        await page.keyboard.press("Enter");
+        await sleep(3000); // Aguardar envio
+
+        // Registrar no audit log
+        logAudit({
+          action: "send_message_browser",
+          chat_id,
+          text_length: text.length,
+          text_preview: text.substring(0, 100),
+        });
+
+        await browser.close();
+
+        return {
+          content: [{
+            type: "text",
+            text: [
+              "Mensagem enviada com sucesso via navegador!",
+              "",
+              `Chat: ${chat_id}`,
+              `Link: https://s${SERVER}.expertintegrado.app/chats#${chat_id}`,
+              `Tamanho: ${text.length} caracteres`,
+            ].join("\n"),
+          }],
+        };
+      } catch (err) {
+        await browser.close().catch(() => {});
+        logAudit({
+          action: "send_message_browser_error",
+          chat_id,
+          error: err.message,
+        });
+        return { content: [{ type: "text", text: `Erro ao enviar mensagem: ${err.message}` }] };
+      }
+    } catch (err) {
+      // Erros de guardrails (rate limit, anti-loop, tamanho, conteudo sensivel)
+      return { content: [{ type: "text", text: err.message }] };
     }
   }
 );

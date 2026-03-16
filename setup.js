@@ -168,7 +168,7 @@ const CONNECTIONS = [
   {
     id: "chatguru",
     name: "ChatGuru",
-    desc: "Consultar conversas e mensagens do WhatsApp da empresa",
+    desc: "Ler e enviar mensagens do WhatsApp da empresa (ChatGuru)",
     dir: "chatguru",
     entry: "index.js",
     credentialType: "playwright_login",
@@ -181,13 +181,13 @@ const CONNECTIONS = [
       printFn("");
       printFn("  O ChatGuru tem dois tipos de acesso:");
       printFn("");
-      printFn("    1. Consulta — Você consegue ler as conversas que tem");
-      printFn("       permissão de ver. É o acesso padrão para todos.");
+      printFn("    1. Padrao — Você consegue ler conversas e enviar");
+      printFn("       mensagens nos chats que tem permissao de acessar.");
+      printFn("       E o acesso para todos os colaboradores.");
       printFn("");
-      printFn("    2. Completo — Além de ler, você pode enviar mensagens,");
-      printFn("       registrar contatos e adicionar notas. Esse acesso é");
-      printFn("       apenas para diretores e gerentes que possuem uma");
-      printFn("       chave especial (API key).");
+      printFn("    2. Completo — Alem de ler e enviar, voce pode registrar");
+      printFn("       contatos, adicionar notas e usar a API diretamente.");
+      printFn("       Apenas para diretores e gerentes com chave de API.");
       printFn("");
 
       const modeAnswer = await askFn("  Você tem uma chave de API do ChatGuru? (s/N): ");
@@ -213,14 +213,23 @@ const CONNECTIONS = [
 
       print("");
       if (mode === "readonly") {
-        print("  Modo: somente consulta (leitura de conversas).");
+        print("  Modo: padrao (leitura + envio de mensagens via navegador).");
       } else {
-        print("  Modo: acesso completo (leitura + envio de mensagens).");
+        print("  Modo: completo (leitura + envio + API do ChatGuru).");
       }
       print("");
       print("  Agora vamos fazer seu login no ChatGuru.");
-      print("  Um navegador vai abrir. Digite seu usuário e senha normalmente.");
-      print("  Esse login é feito apenas uma vez — depois será automático.\n");
+      print("  Um navegador vai abrir. Digite seu usuario e senha normalmente.");
+      print("  Esse login e feito apenas uma vez — depois sera automatico.\n");
+
+      // Instalar Playwright Chromium (necessario para ler e enviar mensagens)
+      print("  Preparando navegador...");
+      try {
+        execSync("npx playwright install chromium", { cwd: mcpDir, stdio: "pipe", timeout: 120000 });
+      } catch {
+        print("  Aviso: nao foi possivel instalar o navegador automaticamente.");
+        print("  O administrador pode resolver depois com: npx playwright install chromium");
+      }
 
       const proceed = await ask("  Pressione Enter para abrir o navegador...");
       try {
@@ -232,8 +241,8 @@ const CONNECTIONS = [
         });
         print("\n  ChatGuru conectado!");
       } catch {
-        print("\n  Não foi possível conectar agora. Sem problemas!");
-        print("  Peça ao Claude depois: \"Conecta meu ChatGuru\"");
+        print("\n  Nao foi possivel conectar agora. Sem problemas!");
+        print("  Peca ao Claude depois: \"Conecta meu ChatGuru\"");
       }
     },
   },
