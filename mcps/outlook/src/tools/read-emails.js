@@ -79,7 +79,7 @@ export async function readEmails(params) {
     ? `&$filter=${encodeURIComponent(filterParts.join(" and "))}`
     : "";
 
-  const endpoint = `/me/mailFolders/${pasta}/messages?$top=${top}${orderbyQuery}&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body${filterQuery}${searchQuery}`;
+  const endpoint = `/me/mailFolders/${pasta}/messages?$top=${top}${orderbyQuery}&$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,bodyPreview,body,hasAttachments${filterQuery}${searchQuery}`;
 
   const result = await graphRequestPaginated(endpoint, top);
 
@@ -117,12 +117,30 @@ export async function readEmails(params) {
     const data = new Date(msg.receivedDateTime).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const lido = msg.isRead ? "✓" : "●";
 
-    // Usa corpo completo (text/plain via stripHtml) com limite de 800 chars
+    // Destinatários (Para e CC)
+    const para = (msg.toRecipients || [])
+      .map(r => r.emailAddress?.name && r.emailAddress.name !== r.emailAddress.address
+        ? `${r.emailAddress.name} <${r.emailAddress.address}>`
+        : r.emailAddress?.address || "")
+      .filter(Boolean);
+    const paraStr = para.length > 0 ? `\n   Para: ${para.join(", ")}` : "";
+
+    const cc = (msg.ccRecipients || [])
+      .map(r => r.emailAddress?.name && r.emailAddress.name !== r.emailAddress.address
+        ? `${r.emailAddress.name} <${r.emailAddress.address}>`
+        : r.emailAddress?.address || "")
+      .filter(Boolean);
+    const ccStr = cc.length > 0 ? `\n   CC: ${cc.join(", ")}` : "";
+
+    // Indicador de anexos
+    const anexoStr = msg.hasAttachments ? `\n   Anexos: sim (use o ID ${msg.id} para baixar)` : "";
+
+    // Usa corpo completo (text/plain via stripHtml) com limite de 2000 chars
     const bodyContent = msg.body?.content
-      ? stripHtml(msg.body.content).substring(0, 800)
+      ? stripHtml(msg.body.content).substring(0, 2000)
       : msg.bodyPreview?.substring(0, 200) || "";
 
-    return `${i + 1}. [${lido}] ${msg.subject || "(sem assunto)"}\n   De: ${de}\n   Data: ${data}\n   ${bodyContent}`;
+    return `${i + 1}. [${lido}] ${msg.subject || "(sem assunto)"}\n   De: ${de}${paraStr}${ccStr}\n   Data: ${data}${anexoStr}\n   ${bodyContent}`;
   });
 
   const titulo = `E-mails (${pasta}) — ${emails.length} encontrado(s):\n${"─".repeat(50)}\n`;

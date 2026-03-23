@@ -48,7 +48,7 @@ export async function listEvents(params) {
   const endISO = fim.toISOString();
   const top = Math.min(quantidade, 500);
 
-  const endpoint = `/me/calendarView?startDateTime=${startISO}&endDateTime=${endISO}&$top=${top}&$orderby=start/dateTime&$select=id,subject,start,end,location,organizer,isAllDay,bodyPreview,webLink,showAs,attendees`;
+  const endpoint = `/me/calendarView?startDateTime=${startISO}&endDateTime=${endISO}&$top=${top}&$orderby=start/dateTime&$select=id,subject,start,end,location,organizer,isAllDay,body,webLink,showAs,attendees`;
 
   const result = await graphRequestPaginated(endpoint, 1000);
 
@@ -115,7 +115,24 @@ export async function listEvents(params) {
       ? `\n   Participantes: ${participantes.join(", ")}`
       : "";
 
-    return `${i + 1}. ${ev.subject || "(sem título)"}${diaInteiro}\n   Horário: ${inicioEv}${fimEv}${local}${orgStr}${participantesStr}${status}`;
+    // Descrição do compromisso (body) — strip HTML e limitar a 500 chars
+    const descRaw = ev.body?.content || "";
+    const descClean = descRaw
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+/g, " ")
+      .trim();
+    const descStr = descClean ? `\n   Descrição: ${descClean.substring(0, 500)}` : "";
+
+    return `${i + 1}. ${ev.subject || "(sem título)"}${diaInteiro}\n   Horário: ${inicioEv}${fimEv}${local}${orgStr}${participantesStr}${descStr}${status}`;
   });
 
   const dataExibicao = inicio.toLocaleDateString("pt-BR", { timeZone: fuso }); // inicio é construído com offset explícito, seguro

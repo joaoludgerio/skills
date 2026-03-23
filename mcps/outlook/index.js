@@ -15,6 +15,7 @@ import { markEmail, markEmailSchema } from "./src/tools/mark-email.js";
 import { updateEvent, updateEventSchema } from "./src/tools/update-event.js";
 import { deleteEvent, deleteEventSchema } from "./src/tools/delete-event.js";
 import { replyEmail, replyEmailSchema } from "./src/tools/reply-email.js";
+import { downloadAttachment, downloadAttachmentSchema } from "./src/tools/download-attachment.js";
 
 const server = new McpServer({
   name: "outlook-mcp",
@@ -182,6 +183,22 @@ server.tool(
       return { content: [{ type: "text", text: result }] };
     } catch (err) {
       return { content: [{ type: "text", text: errMsg(err, "responder e-mail") }], isError: true };
+    }
+  }
+);
+
+// ─── Ferramenta: Baixar Anexos ────────────────────────────────────────────────
+
+server.tool(
+  "baixar_anexo",
+  "Baixa anexos de um e-mail do Outlook para o computador. Use o email_id retornado por ler_emails quando o e-mail indica que tem anexos.",
+  downloadAttachmentSchema.shape,
+  async (params) => {
+    try {
+      const result = await downloadAttachment(params);
+      return { content: [{ type: "text", text: result }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: errMsg(err, "baixar anexo") }], isError: true };
     }
   }
 );
