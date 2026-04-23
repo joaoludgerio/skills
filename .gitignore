@@ -5,3 +5,4 @@ node_modules/
 session.json
 scan-results.json
 *.log
+mcps/whatsapp/
