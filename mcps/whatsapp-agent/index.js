@@ -10,10 +10,15 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 const ZAPI_CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("ERRO: SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY sao obrigatorios.");
   process.exit(1);
+}
+
+if (!OPENAI_API_KEY) {
+  console.warn("AVISO: OPENAI_API_KEY nao configurada — transcricao automatica de audio desativada.");
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -150,9 +155,146 @@ async function resolveChat(to) {
   return { candidates: matches };
 }
 
+// ─── AUDIO TRANSCRIPTION ─────────────────────────────────────────────────────
+
+const AUDIO_TYPES = new Set(["audio", "voice", "ptt"]);
+
+const MIME_BY_EXT = {
+  ogg: "audio/ogg", oga: "audio/ogg",
+  mp3: "audio/mpeg", mpeg: "audio/mpeg",
+  mp4: "audio/mp4", m4a: "audio/mp4",
+  wav: "audio/wav",
+  webm: "audio/webm",
+  opus: "audio/ogg; codecs=opus",
+};
+
+/**
+ * Baixa o audio da mediaUrl e transcreve via OpenAI Whisper API (whisper-1).
+ * - Para URLs do Supabase Storage: adiciona Bearer do service role.
+ * - Para original_url (Backblaze CDN da Z-API): acesso direto sem auth.
+ * Retorna o texto transcrito, ou uma string de erro se falhar.
+ */
+async function transcribeAudio(mediaUrl, mimeHint) {
+  if (!OPENAI_API_KEY) return "Transcricao indisponivel: OPENAI_API_KEY nao configurada";
+  try {
+    const downloadHeaders = {};
+    if (mediaUrl.includes(".supabase.co/storage")) {
+      downloadHeaders["Authorization"] = `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+    }
+
+    const audioRes = await fetch(mediaUrl, { headers: downloadHeaders });
+    if (!audioRes.ok) return `Erro ao transcrever: download falhou (HTTP ${audioRes.status})`;
+
+    const audioBuffer = await audioRes.arrayBuffer();
+    if (!audioBuffer.byteLength) return "Erro ao transcrever: arquivo de audio vazio";
+
+    // Usa mimeHint do banco (ex: "audio/ogg; codecs=opus") ou infere pela extensao da URL
+    const baseMime = mimeHint ? mimeHint.split(";")[0].trim() : null;
+    const ext = (mediaUrl.match(/\.(ogg|oga|mp3|mp4|m4a|wav|webm|mpeg|opus)(\?|$)/i)?.[1] || "ogg").toLowerCase();
+    const mimeType = baseMime || MIME_BY_EXT[ext] || "audio/ogg";
+    const filename = `audio.${ext}`;
+
+    const formData = new FormData();
+    formData.append("file", new Blob([audioBuffer], { type: mimeType }), filename);
+    formData.append("model", "whisper-1");
+    formData.append("language", "pt");
+    formData.append("response_format", "text");
+
+    const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: formData,
+    });
+
+    if (!whisperRes.ok) {
+      const errText = await whisperRes.text();
+      return `Erro ao transcrever: OpenAI ${whisperRes.status} — ${errText.slice(0, 120)}`;
+    }
+
+    const text = await whisperRes.text();
+    return text.trim() || "(audio sem fala detectada)";
+  } catch (e) {
+    return `Erro ao transcrever: ${e.message}`;
+  }
+}
+
+/**
+ * Recebe um array de mensagens e adiciona campo `transcription` nas de audio.
+ *
+ * Logica por tipo de chat:
+ * - Privado: a Edge Function transcribe-queue ja salva em messages.content (cache).
+ *   Se content nao for null, retorna direto sem chamar API.
+ * - Grupo: transcreve on-demand (a cron so processa privados).
+ *   Apos transcrever, salva em messages.content como cache permanente.
+ *   Proxima leitura usa o cache — zero API call.
+ *
+ * Schema real do message_media:
+ *   message_id, mime_type, storage_bucket, storage_path, original_url, download_status
+ */
+async function enrichWithTranscriptions(messages) {
+  const audioMessages = messages.filter(m => AUDIO_TYPES.has(m.message_type));
+  if (!audioMessages.length) return messages;
+
+  // Separa cache hits (content ja preenchido) de cache misses (precisa transcrever)
+  const cacheHits = audioMessages.filter(m => m.content && typeof m.content === "string" && !m.content.startsWith("http"));
+  const cacheMisses = audioMessages.filter(m => !m.content || m.content.startsWith("http"));
+
+  // Para cache misses: busca URLs de midia em lote
+  const mediaById = {};
+  const missIds = cacheMisses.map(m => m.id).filter(Boolean);
+
+  if (missIds.length) {
+    const { data: mediaRows } = await supabase
+      .from("message_media")
+      .select("message_id,original_url,storage_bucket,storage_path,mime_type,download_status")
+      .in("message_id", missIds);
+
+    for (const row of mediaRows || []) {
+      if (row.download_status !== "done") continue;
+      // Prefere Supabase Storage (persistente) sobre original_url (CDN Backblaze)
+      const storageUrl = row.storage_path && row.storage_bucket
+        ? `${SUPABASE_URL}/storage/v1/object/${row.storage_bucket}/${row.storage_path}`
+        : null;
+      mediaById[row.message_id] = { url: storageUrl || row.original_url, mimeType: row.mime_type };
+    }
+  }
+
+  // Transcreve cache misses em paralelo e salva no banco (cache permanente)
+  const newTranscriptions = await Promise.all(
+    cacheMisses.map(async m => {
+      const media = mediaById[m.id];
+      const mediaUrl = media?.url;
+
+      if (!mediaUrl) return { id: m.id, transcription: "Erro ao transcrever: midia nao encontrada no banco" };
+
+      const transcription = await transcribeAudio(mediaUrl, media?.mimeType);
+
+      // Salva no banco se transcricao bem-sucedida (sem mensagem de erro)
+      if (m.id && !transcription.startsWith("Erro ao transcrever")) {
+        supabase.from("messages").update({ content: transcription }).eq("id", m.id).then(({ error }) => {
+          if (error) console.error(`Cache save failed for msg ${m.id}:`, error.message);
+        });
+      }
+
+      return { id: m.id, transcription };
+    })
+  );
+
+  // Monta mapa final: cache hits usam content existente, misses usam resultado da API
+  const transcriptionById = {};
+  for (const m of cacheHits) transcriptionById[m.id] = m.content;
+  for (const t of newTranscriptions) transcriptionById[t.id] = t.transcription;
+
+  return messages.map(m =>
+    AUDIO_TYPES.has(m.message_type)
+      ? { ...m, transcription: transcriptionById[m.id] ?? "Erro ao transcrever audio" }
+      : m
+  );
+}
+
 // ─── SERVER ──────────────────────────────────────────────────────────────────
 
-const server = new McpServer({ name: "whatsapp-agent", version: "2.0.0" });
+const server = new McpServer({ name: "whatsapp-agent", version: "2.1.0" });
 
 // ─── 1. inbox ────────────────────────────────────────────────────────────────
 server.tool(
@@ -160,7 +302,8 @@ server.tool(
   `Mostra as conversas recentes do WhatsApp com as ultimas mensagens de cada uma.
 Use para: "quem me mandou mensagem?", "tem msg nao lida?", "o que tem no WhatsApp?".
 Parametros opcionais: limit (padrao 15), unread_only (so nao lidos), since (ISO timestamp).
-Retorna: lista de chats com nome do contato, ultima msg, timestamp, contagem nao lidos.`,
+Retorna: lista de chats com nome do contato, ultima msg, timestamp, contagem nao lidos.
+Mensagens de audio incluem campo transcription com o conteudo transcrito automaticamente (requer OPENAI_API_KEY).`,
   {
     limit: z.number().int().min(1).max(50).default(15),
     unread_only: z.boolean().default(false).describe("Se true, retorna apenas chats com mensagens nao lidas"),
@@ -180,11 +323,11 @@ Retorna: lista de chats com nome do contato, ultima msg, timestamp, contagem nao
       const { data: chats, error } = await q;
       if (error) return err(error.message);
 
-      // Buscar ultima mensagem de cada chat
+      // Buscar ultima mensagem de cada chat (com id para poder transcrever audios)
       const chatIds = (chats || []).map((c) => c.chat_id);
       const { data: lastMsgs } = await supabase
         .from("messages")
-        .select("chat_id,content,message_type,from_me,created_at")
+        .select("id,chat_id,content,message_type,from_me,created_at")
         .in("chat_id", chatIds)
         .order("created_at", { ascending: false });
 
@@ -193,20 +336,29 @@ Retorna: lista de chats com nome do contato, ultima msg, timestamp, contagem nao
         if (!lastByChat[m.chat_id]) lastByChat[m.chat_id] = m;
       }
 
-      const result = (chats || []).map((c) => ({
-        chat_id: c.chat_id,
-        name: c.contact_name || c.chat_name,
-        is_group: c.is_group,
-        unread: c.unread_count || 0,
-        last_message_at: c.last_message_at,
-        last_message: lastByChat[c.chat_id]
-          ? {
-              content: lastByChat[c.chat_id].content?.slice(0, 120),
-              type: lastByChat[c.chat_id].message_type,
-              from_me: lastByChat[c.chat_id].from_me,
-            }
-          : null,
-      }));
+      // Transcreve audios das ultimas mensagens em batch
+      const lastMsgsList = Object.values(lastByChat);
+      const enrichedList = await enrichWithTranscriptions(lastMsgsList);
+      const enrichedByChat = Object.fromEntries(enrichedList.map(m => [m.chat_id, m]));
+
+      const result = (chats || []).map((c) => {
+        const msg = enrichedByChat[c.chat_id];
+        return {
+          chat_id: c.chat_id,
+          name: c.contact_name || c.chat_name,
+          is_group: c.is_group,
+          unread: c.unread_count || 0,
+          last_message_at: c.last_message_at,
+          last_message: msg
+            ? {
+                content: msg.content?.slice(0, 120),
+                type: msg.message_type,
+                from_me: msg.from_me,
+                ...(AUDIO_TYPES.has(msg.message_type) && { transcription: msg.transcription }),
+              }
+            : null,
+        };
+      });
 
       return ok({ chats: result, total: result.length });
     } catch (e) {
@@ -222,7 +374,8 @@ server.tool(
 Use para: "o que o Marcos disse?", "mostra as msgs do grupo G4", "qual foi a ultima msg da Maria?".
 O parametro "chat" aceita: nome do contato, nome do grupo, numero de telefone, ou chat_id.
 Se o nome for ambiguo, retorna lista de candidatos para voce escolher.
-Retorna mensagens em ordem cronologica com conteudo, tipo, remetente e timestamp.`,
+Retorna mensagens em ordem cronologica com conteudo, tipo, remetente e timestamp.
+Mensagens de audio incluem campo transcription com o conteudo transcrito automaticamente (requer OPENAI_API_KEY).`,
   {
     chat: z.string().describe("Nome, telefone ou chat_id da conversa"),
     limit: z.number().int().min(1).max(100).default(30).describe("Numero de mensagens (mais recentes)"),
@@ -256,11 +409,13 @@ Retorna mensagens em ordem cronologica com conteudo, tipo, remetente e timestamp
       const { data, error } = await q;
       if (error) return err(error.message);
 
+      const enriched = await enrichWithTranscriptions(data || []);
+
       return ok({
         chat_id: resolved.chat_id,
         chat_name: resolved.chat_name,
-        messages: (data || []).reverse(),
-        count: data?.length || 0,
+        messages: enriched.reverse(),
+        count: enriched.length,
       });
     } catch (e) {
       return err(e.message);
@@ -357,7 +512,8 @@ server.tool(
   `Busca texto nas mensagens do WhatsApp.
 Use para: "vc falou alguma coisa sobre reuniao?", "o que o Pedro disse sobre o contrato?".
 Pode filtrar por chat especifico (parametro "chat") e por periodo (after/before).
-Retorna mensagens com contexto: chat de origem, remetente e timestamp.`,
+Retorna mensagens com contexto: chat de origem, remetente e timestamp.
+Mensagens de audio nos resultados incluem campo transcription automaticamente.`,
   {
     query: z.string().min(2).describe("Texto a buscar nas mensagens"),
     chat: z.string().optional().describe("Limitar busca a um chat especifico (nome ou chat_id)"),
@@ -388,7 +544,9 @@ Retorna mensagens com contexto: chat de origem, remetente e timestamp.`,
 
       const { data, error } = await q;
       if (error) return err(error.message);
-      return ok({ results: data, count: data?.length || 0, query });
+
+      const enriched = await enrichWithTranscriptions(data || []);
+      return ok({ results: enriched, count: enriched.length, query });
     } catch (e) {
       return err(e.message);
     }
@@ -465,6 +623,7 @@ Use quando: o usuario pedir status, antes de enviar mensagens importantes, ou ao
         connected: zapiData?.connected || zapiData?.smartphoneConnected || false,
         zapi: zapiData,
         webhook_active: instance?.is_active,
+        transcription_enabled: !!OPENAI_API_KEY,
         stats: { total_messages: totalMessages, messages_last_24h: todayMessages },
       });
     } catch (e) {
