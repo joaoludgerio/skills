@@ -278,15 +278,38 @@ Tipos suportados: text (padrao), image, audio, video, document.
 Para reply (responder mensagem especifica): passe reply_to com o UUID da mensagem.
 Para midia: passe media_url com URL publica do arquivo.
 
-REGRA OBRIGATORIA: Antes de usar esta ferramenta, SEMPRE mostre ao usuario o destinatario e o conteudo da mensagem e peca confirmacao explicita. NUNCA envie sem que o usuario diga "sim", "confirma", "pode enviar" ou equivalente. Se o usuario nao confirmou explicitamente, NAO chame esta tool — pergunte primeiro.`,
+FLUXO OBRIGATORIO (duas chamadas):
+1a chamada — SEM confirmed: mostre ao usuario destinatario + conteudo, aguarde confirmacao. O MCP vai bloquear e retornar o resumo para exibir ao usuario.
+2a chamada — COM confirmed: true: so apos o usuario confirmar explicitamente ("sim", "confirma", "pode enviar").`,
   {
     to: z.string().describe("Destinatario: nome, telefone ou chat_id"),
     content: z.string().default("").describe("Texto ou legenda da midia"),
     type: z.enum(["text", "image", "audio", "video", "document"]).default("text"),
     media_url: z.string().url().optional().describe("URL publica da midia (obrigatorio se type != text)"),
     reply_to: z.string().optional().describe("UUID da mensagem para responder (quote reply)"),
+    confirmed: z.boolean().default(false).describe("OBRIGATORIO true para enviar. So passe true apos mostrar destinatario+conteudo ao usuario e receber confirmacao explicita."),
   },
-  async ({ to, content, type, media_url, reply_to }) => {
+  async ({ to, content, type, media_url, reply_to, confirmed }) => {
+    if (!confirmed) {
+      return {
+        content: [{
+          type: "text",
+          text: [
+            "BLOQUEADO: confirmacao pendente.",
+            "",
+            "Mostre ao usuario:",
+            `  Destinatario : ${to}`,
+            `  Mensagem     : ${content || "(midia)"}`,
+            `  Tipo         : ${type}`,
+            ...(media_url ? [`  URL midia    : ${media_url}`] : []),
+            "",
+            'Apos o usuario confirmar ("sim", "confirma", "pode enviar"), chame novamente com confirmed: true.',
+          ].join("\n"),
+        }],
+        isError: true,
+      };
+    }
+
     try {
       const resolved = await resolveChat(to);
       if (resolved.error) return err(resolved.error);
@@ -542,21 +565,33 @@ Retorna: total de grupos encontrados na Z-API, quantos foram atualizados no banc
   }
 );
 
+// Actions que enviam conteudo visivel para outros — requerem confirmed: true
+const ZAPI_SEND_ACTIONS = new Set([
+  "send-poll",
+  "forward-message",
+  "edit-message",
+  "send-text",
+  "send-message",
+]);
+
 // ─── 8. zapi_action ──────────────────────────────────────────────────────────
 server.tool(
   "zapi_action",
   `Executa qualquer acao avancada da Z-API diretamente.
 Use quando as tools acima nao cobrirem o caso (operacoes infrequentes).
 
-ATENCAO: Para acoes que enviam mensagens (send-poll, forward-message, edit-message), aplica a mesma REGRA OBRIGATORIA do "send": mostre ao usuario o que sera enviado e peca confirmacao antes de chamar esta tool.
+Para acoes que enviam conteudo (send-poll, forward-message, edit-message):
+  - confirmed: false (padrao): MCP bloqueia e retorna resumo para exibir ao usuario.
+  - confirmed: true: so apos confirmacao explicita do usuario.
+  Acoes de leitura/config nao precisam de confirmed.
 
 Actions disponiveis e seus params:
 - mark-read: { phone } — marca todas mensagens do chat como lidas
 - delete-message: { phone, messageId, owner } — deleta mensagem (owner: true=minha, false=de outro)
-- edit-message: { phone, messageId, newMessage } — edita mensagem de texto enviada por voce
-- send-poll: { phone, question, options: string[], selectableCount } — envia enquete
-- forward-message: { phone, messageId, forwardPhone } — encaminha mensagem
-- send-reaction: { phone, messageId, reaction } — igual ao "react" mas modo raw
+- edit-message: { phone, messageId, newMessage } — edita mensagem de texto enviada por voce  [REQUER confirmed]
+- send-poll: { phone, question, options: string[], selectableCount } — envia enquete  [REQUER confirmed]
+- forward-message: { phone, messageId, forwardPhone } — encaminha mensagem  [REQUER confirmed]
+- send-reaction: { phone, messageId, reaction } — reage com emoji (nao requer confirmed)
 - block-contact: { phone } — bloqueia contato
 - unblock-contact: { phone } — desbloqueia contato
 - get-contact-info: { phone } — info do contato (nome, foto, status do WhatsApp)
@@ -571,8 +606,24 @@ Para "messageId": usar provider_msg_id da tabela messages (nao o UUID interno).`
   {
     action: z.string().describe("Nome do endpoint Z-API (ex: mark-read, delete-message, send-poll)"),
     params: z.record(z.unknown()).describe("Parametros da action conforme documentacao acima"),
+    confirmed: z.boolean().default(false).describe("Obrigatorio true para actions de envio (send-poll, forward-message, edit-message). So passe true apos confirmacao explicita do usuario."),
   },
-  async ({ action, params }) => {
+  async ({ action, params, confirmed }) => {
+    if (ZAPI_SEND_ACTIONS.has(action) && !confirmed) {
+      return {
+        content: [{
+          type: "text",
+          text: [
+            `BLOQUEADO: a action "${action}" envia conteudo e requer confirmacao do usuario.`,
+            "",
+            "Mostre ao usuario o que sera enviado (action + parametros) e aguarde confirmacao.",
+            'Apos "sim", "confirma" ou equivalente, chame novamente com confirmed: true.',
+          ].join("\n"),
+        }],
+        isError: true,
+      };
+    }
+
     try {
       if (!ZAPI_BASE) return err("Credenciais Z-API nao configuradas.");
 
