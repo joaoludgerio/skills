@@ -78,6 +78,9 @@ PD_BASE = "https://expertintegrado.pipedrive.com/api/v1"
 CG_BASE = "https://s13.expertintegrado.app/api/v1"
 BRT     = ZoneInfo("America/Sao_Paulo")
 
+ERRO_LABEL_ID      = 390  # Label "ERRO DE DISPARO" no Pipedrive
+LEAD_MAPEADO_STAGE = 64   # Stage "Lead Mapeado" no pipeline Prospeccao (id 7)
+
 # ---------- HTTP helpers ----------
 def _http_json(method, url, body=None, headers=None, timeout=20, retries=3):
     headers = headers or {}
@@ -417,6 +420,34 @@ def process_lead(creds, lead, config, log_path):
                 result["errs"].append(f"create_call: {rr}")
         else:
             result["errs"].append("atividades_skipped: chat_add falhou — atividades nao foram criadas pra evitar registro fantasma")
+            # 8c. Erro de disparo: cria task + move pra Lead Mapeado + label ERRO DE DISPARO
+            try:
+                pd_post(creds, "/activities", {
+                    "subject": "Erro de disparo",
+                    "type":    "task",
+                    "deal_id": deal_id,
+                    "user_id": config["expert_id"],
+                    "done":    0,
+                    "note":    f"chat_add falhou. Phone testado: {phone} (e variante 12<->13). Provavel numero invalido/sem WhatsApp.",
+                })
+                # Preserva labels existentes, adiciona ERRO_LABEL_ID
+                cur_label = deal.get("label")
+                cur_ids = []
+                if isinstance(cur_label, int):
+                    cur_ids = [cur_label]
+                elif isinstance(cur_label, str) and cur_label:
+                    cur_ids = [int(x) for x in cur_label.split(",") if x.strip().isdigit()]
+                elif isinstance(cur_label, list):
+                    cur_ids = [int(x) for x in cur_label if str(x).isdigit()]
+                if ERRO_LABEL_ID not in cur_ids:
+                    cur_ids.append(ERRO_LABEL_ID)
+                pd_put(creds, f"/deals/{deal_id}", {
+                    "stage_id": LEAD_MAPEADO_STAGE,
+                    "label": ",".join(str(x) for x in cur_ids),
+                })
+                result["moved_to_lead_mapeado"] = True
+            except Exception as _e:
+                result["errs"].append(f"flag_erro_disparo: {_e}")
 
         # 9. CRM links + nota (so se chat_add deu certo)
         if chat_add_ok:

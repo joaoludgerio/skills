@@ -54,6 +54,8 @@ CG_BASE = 'https://s13.expertintegrado.app/api/v1'
 
 PERSON_CHAT_FIELD = 'ac0aa8d970799954747791a22a4645ea9159c7e2'  # campo "Link do Chat API Oficial"
 EXPERT_USER       = 22805147  # user_id Expert Integrado (conta automacao)
+ERRO_LABEL_ID     = 390       # Label "ERRO DE DISPARO" no Pipedrive
+LEAD_MAPEADO_STAGE = 64       # Stage "Lead Mapeado" no pipeline Prospeccao (id 7)
 
 # ───────────── HTTP HELPERS ────────────────────────────────────────────────
 def _cg_call(creds, action, params):
@@ -170,13 +172,36 @@ def disparar(creds, deal_id, person_id, phone, miolo, dialog_id, name=None):
             if r3.get('result') != 'success':
                 erro = f'F3: {r3.get("dialog_execution_return") or r3.get("description") or r3}'
 
-    # F4: atividade
+    # F4: atividade + (em caso de erro) move pra Lead Mapeado e adiciona label ERRO DE DISPARO
     if erro:
         _pd_req(creds, 'POST', '/activities', {
             'subject': 'Erro de disparo', 'type': 'task',
             'deal_id': deal_id, 'user_id': EXPERT_USER, 'done': 0,
             'note': erro,
         })
+        # F4.1: move pra Lead Mapeado + adiciona label ERRO DE DISPARO (preserva labels existentes)
+        try:
+            d = _pd_req(creds, 'GET', f'/deals/{deal_id}', None) if False else None
+            # GET via urllib direto pra simplificar (sem body)
+            url = f'{PD_BASE}/deals/{deal_id}?api_token={creds["PD_TOKEN"]}'
+            with urllib.request.urlopen(url, timeout=15) as r:
+                deal_data = json.loads(r.read()).get('data') or {}
+            cur_label = deal_data.get('label')
+            cur_ids = []
+            if isinstance(cur_label, int):
+                cur_ids = [cur_label]
+            elif isinstance(cur_label, str) and cur_label:
+                cur_ids = [int(x) for x in cur_label.split(',') if x.strip().isdigit()]
+            elif isinstance(cur_label, list):
+                cur_ids = [int(x) for x in cur_label if str(x).isdigit()]
+            if ERRO_LABEL_ID not in cur_ids:
+                cur_ids.append(ERRO_LABEL_ID)
+            _pd_req(creds, 'PUT', f'/deals/{deal_id}', {
+                'stage_id': LEAD_MAPEADO_STAGE,
+                'label': ','.join(str(x) for x in cur_ids),
+            })
+        except Exception as _e:
+            pass  # nao bloqueia o batch se Pipedrive der hiccup; erro ja foi marcado
     else:
         _pd_req(creds, 'POST', '/activities', {
             'subject': 'Mensagem disparada por API oficial', 'type': 'whatsapp',
