@@ -159,6 +159,84 @@ def cg_call_phone_fallback(creds, action, phone, params_extra):
             return r2, p_alt
     return r, phone
 
+def _alt_phone_br(p):
+    """Retorna alternativa BR (12<->13 chars) ou None se nao aplicavel.
+    12 chars '55XX...' -> 13 chars com 9 apos DDD.
+    13 chars '55XX9...' -> 12 chars sem o 9.
+    """
+    p = re.sub(r"\D", "", p or "")
+    if len(p) == 12 and p.startswith("55"):
+        return p[:4] + "9" + p[4:]
+    if len(p) == 13 and p.startswith("55") and p[4] == "9":
+        return p[:4] + p[5:]
+    return None
+
+def chat_add_with_fallback(creds, phone, name, text):
+    """chat_add tentando phone original e, se falhar, alternativa 12<->13.
+    Retorna (response, phone_used). Sucesso = `chat_add_id` presente."""
+    r = cg_call(creds, "chat_add", {"chat_number": phone, "name": name, "text": text})
+    if r.get("chat_add_id"):
+        return r, phone
+    p_alt = _alt_phone_br(phone)
+    if p_alt and p_alt != phone:
+        r2 = cg_call(creds, "chat_add", {"chat_number": p_alt, "name": name, "text": text})
+        if r2.get("chat_add_id"):
+            return r2, p_alt
+        return r2, p_alt
+    return r, phone
+
+# ---------- NOME DO CONTATO ----------
+_SKIP_FIRST_NAMES = {"opa", "eu", "hola", "ola", "oi", "olá", "olá,",
+                     "funis", "quero", "agendar", "tenho", "preciso"}
+_SKIP_TITLE_PREFIXES = {"psicóloga", "psicologa", "psicólogo", "psicologo",
+                        "dr", "dra", "doutor", "doutora", "doutorando",
+                        "mister", "sr", "sra", "senhor", "senhora",
+                        "engenheiro", "engenheira", "professor", "professora",
+                        "pastor", "pastora", "advogado", "advogada"}
+
+def _clean_first_name(full_name, fallback="amigo(a)"):
+    """Extrai primeiro nome usavel. Filtra:
+    - Email armazenado como nome (Adrianocs16@hotmail.com -> fallback se tiver digito)
+    - Bot greetings ("Opa", "Oi", "Olá") -> tenta segunda palavra
+    - Titulos profissionais ("Psicóloga Fátima Cruz" -> "Fátima")
+    Retorna o primeiro nome capitalizado ou `fallback`.
+    """
+    if not full_name:
+        return fallback
+    t = full_name.strip()
+    # Email-as-name
+    if "@" in t and " " not in t:
+        prefix = t.split("@")[0]
+        candidate = prefix.split(".")[0]
+        if any(c.isdigit() for c in candidate) or len(candidate) < 2:
+            return fallback
+        return candidate.capitalize()
+    parts = t.split()
+    if not parts:
+        return fallback
+
+    def _normalize(token):
+        token = token.strip("|,").strip()
+        return "".join(c for c in token if c.isalpha() or c in "-'")
+
+    fn = _normalize(parts[0])
+    if not fn:
+        # primeira palavra so tinha simbolo/emoji — tenta segunda
+        if len(parts) > 1:
+            fn2 = _normalize(parts[1])
+            if fn2:
+                return fn2.capitalize() if fn2.isupper() else fn2
+        return fallback
+    fn_lower = fn.lower()
+    # Bot greeting ou titulo profissional -> tenta segunda palavra
+    if fn_lower in _SKIP_FIRST_NAMES or fn_lower in _SKIP_TITLE_PREFIXES:
+        if len(parts) > 1:
+            fn2 = _normalize(parts[1])
+            if fn2 and fn2.lower() not in _SKIP_FIRST_NAMES:
+                return fn2.capitalize() if fn2.isupper() else fn2
+        return fallback
+    return fn.capitalize() if fn.isupper() else fn
+
 # ---------- DEDUPE ----------
 def load_processed_ids(log_path):
     """Le results.jsonl e retorna set de deal_ids ja processados com sucesso."""
@@ -232,7 +310,7 @@ def process_lead(creds, lead, config, log_path):
         result.update(person_id=person_id, name=person_name, company=company, phone=phone)
 
         # Mensagens
-        first_name = person_name.split()[0] if person_name else "amigo(a)"
+        first_name = _clean_first_name(person_name)
         m1 = config["msg_1_func"](first_name, sdr)
         m2 = config["msg_2_func"](company)
         m3 = config["msg_3_func"]()
@@ -254,66 +332,27 @@ def process_lead(creds, lead, config, log_path):
         if not rr.get("success"):
             result["errs"].append(f"update_owner: {rr}")
 
-        # 4. Atividade WhatsApp concluida (registro)
-        wa_note = (f"Mensagem de ativação enviada em 3 partes via ChatGuru:\n\n"
-                   f"[1] {m1}\n\n[2] {m2}\n\n[3] {m3}")
-        wa_due_utc = brt_to_utc_hhmm(config.get("wa_due_time_brt", "09:25"))
-        rr = pd_post(creds, "/activities", {
-            "subject": config.get("wa_subject", "Mensagem de ativação"),
-            "type": "whatsapp",
-            "deal_id": deal_id,
-            "user_id": config["expert_id"],
-            "due_date": now_brt().strftime("%Y-%m-%d"),
-            "due_time": wa_due_utc,
-            "note": wa_note,
-            "done": 1,
-        })
-        if rr.get("success"):
-            result["wa_activity_id"] = rr["data"]["id"]
-        else:
-            result["errs"].append(f"create_wa: {rr}")
-
-        # 5. Atividade Call (follow-up)
-        call_due_utc = brt_to_utc_hhmm(config.get("call_due_time_brt", "11:30"))
-        call_note = (f"Lead da campanha. Mensagem de ativacao em 3 partes ja disparada via ChatGuru.\n\n"
-                     f"Telefone: {phone}\nEmpresa: {company or '(nao informada)'}")
-        rr = pd_post(creds, "/activities", {
-            "subject": config.get("call_subject", "Ligar - Follow-up"),
-            "type": "call",
-            "deal_id": deal_id,
-            "user_id": sdr_id,
-            "due_date": config.get("call_due_date", now_brt().strftime("%Y-%m-%d")),
-            "due_time": call_due_utc,
-            "duration": config.get("call_duration", "00:30"),
-            "note": call_note,
-        })
-        if rr.get("success"):
-            result["call_activity_id"] = rr["data"]["id"]
-        else:
-            result["errs"].append(f"create_call: {rr}")
-
-        # 6. ChatGuru chat_add (msg 1 + nome do contato; SEM dialog_id pra disparar separado)
-        rr = cg_call(creds, "chat_add", {
-            "chat_number": phone,
-            "name": person_name,
-            "text": m1,
-        })
-        if rr.get("chat_add_id"):
+        # 4. ChatGuru chat_add (msg 1 + nome; com fallback 12<->13)
+        # SEM dialog_id aqui — disparamos dialog_execute separado pra garantir.
+        rr, phone_used = chat_add_with_fallback(creds, phone, person_name, m1)
+        chat_add_ok = bool(rr.get("chat_add_id"))
+        if chat_add_ok:
             result["chat_add_id"] = rr["chat_add_id"]
         else:
             result["errs"].append(f"chat_add: {rr}")
+        result["phone_used"] = phone_used
 
-        # 7. Wait 4-8s (registro async ChatGuru)
+        # 5. Wait 4-8s (registro async ChatGuru)
         time.sleep(config.get("post_chat_add_sleep", 5))
 
-        # 8. dialog_execute (separado, garantia) — com fallback 12<->13
-        rr, phone_used = cg_call_phone_fallback(creds, "dialog_execute", phone,
+        # 6. dialog_execute (separado, garantia) — com fallback 12<->13
+        rr, phone_used = cg_call_phone_fallback(creds, "dialog_execute", phone_used,
                                                 {"dialog_id": dialog_id})
         if rr.get("result") != "success":
             result["errs"].append(f"dialog_execute: {rr.get('description', rr)}")
         result["phone_used"] = phone_used
 
-        # 9. Send msg 2 + msg 3 com send_date
+        # 7. Send msg 2 + msg 3 com send_date
         now = now_brt()
         m2_dt = now + datetime.timedelta(minutes=config.get("msg2_offset_min", 1))
         m3_dt = now + datetime.timedelta(minutes=config.get("msg3_offset_min", 2))
@@ -336,19 +375,63 @@ def process_lead(creds, lead, config, log_path):
         else:
             result["errs"].append(f"msg_3: {rr.get('description', rr)}")
 
-        # 10. CRM links + nota (idempotente; sempre rodar)
-        rr, _ = cg_call_phone_fallback(creds, "chat_update_custom_fields", phone_used, {
-            "field__CRM__Link_pessoa":  f"https://expertintegrado.pipedrive.com/person/{person_id}",
-            "field__CRM__Link_negocio": f"https://expertintegrado.pipedrive.com/deal/{deal_id}",
-        })
-        if rr.get("result") != "success":
-            result["errs"].append(f"crm_fields: {rr.get('description', rr)}")
+        # 8. Atividades Pipedrive — somente apos confirmar que chat_add deu certo.
+        # Evita atividades-fantasma marcadas como "enviada" quando disparo nem aconteceu.
+        if chat_add_ok:
+            # 8a. Atividade WhatsApp concluida (registro)
+            wa_note = (f"Mensagem de ativação enviada em 3 partes via ChatGuru:\n\n"
+                       f"[1] {m1}\n\n[2] {m2}\n\n[3] {m3}")
+            wa_due_utc = brt_to_utc_hhmm(config.get("wa_due_time_brt", "09:25"))
+            rr = pd_post(creds, "/activities", {
+                "subject": config.get("wa_subject", "Mensagem de ativação"),
+                "type": "whatsapp",
+                "deal_id": deal_id,
+                "user_id": config["expert_id"],
+                "due_date": now_brt().strftime("%Y-%m-%d"),
+                "due_time": wa_due_utc,
+                "note": wa_note,
+                "done": 1,
+            })
+            if rr.get("success"):
+                result["wa_activity_id"] = rr["data"]["id"]
+            else:
+                result["errs"].append(f"create_wa: {rr}")
 
-        rr, _ = cg_call_phone_fallback(creds, "note_add", phone_used, {
-            "note_text": f"Link do negócio no Pipedrive: https://expertintegrado.pipedrive.com/deal/{deal_id}",
-        })
-        if rr.get("result") != "success":
-            result["errs"].append(f"note: {rr.get('description', rr)}")
+            # 8b. Atividade Call (follow-up)
+            call_due_utc = brt_to_utc_hhmm(config.get("call_due_time_brt", "11:30"))
+            call_note = (f"Lead da campanha. Mensagem de ativacao em 3 partes ja disparada via ChatGuru.\n\n"
+                         f"Telefone: {phone_used}\nEmpresa: {company or '(nao informada)'}")
+            rr = pd_post(creds, "/activities", {
+                "subject": config.get("call_subject", "Ligar - Follow-up"),
+                "type": "call",
+                "deal_id": deal_id,
+                "user_id": sdr_id,
+                "due_date": config.get("call_due_date", now_brt().strftime("%Y-%m-%d")),
+                "due_time": call_due_utc,
+                "duration": config.get("call_duration", "00:30"),
+                "note": call_note,
+            })
+            if rr.get("success"):
+                result["call_activity_id"] = rr["data"]["id"]
+            else:
+                result["errs"].append(f"create_call: {rr}")
+        else:
+            result["errs"].append("atividades_skipped: chat_add falhou — atividades nao foram criadas pra evitar registro fantasma")
+
+        # 9. CRM links + nota (so se chat_add deu certo)
+        if chat_add_ok:
+            rr, _ = cg_call_phone_fallback(creds, "chat_update_custom_fields", phone_used, {
+                "field__CRM__Link_pessoa":  f"https://expertintegrado.pipedrive.com/person/{person_id}",
+                "field__CRM__Link_negocio": f"https://expertintegrado.pipedrive.com/deal/{deal_id}",
+            })
+            if rr.get("result") != "success":
+                result["errs"].append(f"crm_fields: {rr.get('description', rr)}")
+
+            rr, _ = cg_call_phone_fallback(creds, "note_add", phone_used, {
+                "note_text": f"Link do negócio no Pipedrive: https://expertintegrado.pipedrive.com/deal/{deal_id}",
+            })
+            if rr.get("result") != "success":
+                result["errs"].append(f"note: {rr.get('description', rr)}")
 
         result["ok"] = len(result["errs"]) == 0
 

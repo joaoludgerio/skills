@@ -71,21 +71,23 @@ Se houver pilotos manuais (executados antes da engine), incluir os deal_ids num 
 
 A engine executa em ordem:
 
-1. **GET deal** -> person_id, phone, name, company
+1. **GET deal** -> person_id, phone, name, company. Aplica `_clean_first_name` no nome (filtra emails, titulos profissionais, bot greetings tipo "Opa"/"Hola"/"Quero Automatizar" — fallback `amigo(a)`)
 2. **GET activities pendentes** -> identifica vencida (subject contem `vencida_subject_match`) e marca done
 3. **PUT deal** user_id = SDR (reatribuir)
-4. **POST atividade WhatsApp concluida** (registro do disparo: dono Expert Integrado, due_date hoje, due_time = 09:25 BRT retroativo, note = msg 1+2+3 concatenadas, done=1)
-5. **POST atividade Call follow-up** (dono SDR, data/hora configuravel)
-6. **chat_add ChatGuru** (msg 1 vai como `text`; SEM `dialog_id` aqui — disparamos separado)
-7. **Sleep 5s** (registro async ChatGuru)
-8. **dialog_execute** (com fallback 12<->13 chars no phone)
-9. **message_send msg 2** com `send_date = +1min` (BRT, formato YYYY-MM-DD HH:MM)
-10. **message_send msg 3** com `send_date = +2min`
-11. **chat_update_custom_fields** preenchendo `CRM__Link_pessoa` + `CRM__Link_negocio`
-12. **note_add** com link do deal
+4. **chat_add ChatGuru** (msg 1 + nome; com fallback de phone 12<->13 — `chat_add_with_fallback`. SEM `dialog_id` aqui — disparamos separado)
+5. **Sleep 5s** (registro async ChatGuru)
+6. **dialog_execute** (com fallback 12<->13 chars no phone)
+7. **message_send msg 2** com `send_date = +1min` (BRT, formato YYYY-MM-DD HH:MM)
+8. **message_send msg 3** com `send_date = +2min`
+9. **POST atividade WhatsApp concluida** — SO se chat_add deu certo (evita atividade-fantasma: dono Expert Integrado, due_date hoje, due_time = 09:25 BRT retroativo, note = msg 1+2+3 concatenadas, done=1)
+10. **POST atividade Call follow-up** — SO se chat_add deu certo (dono SDR, data/hora configuravel)
+11. **chat_update_custom_fields** preenchendo `CRM__Link_pessoa` + `CRM__Link_negocio` (so se chat_add ok)
+12. **note_add** com link do deal (so se chat_add ok)
 13. **Sleep 30s** antes do proximo lead
 
 Cada falha em step individual nao para o batch — vira entrada em `errs` e o lead segue. Re-rodar a engine depois pula leads com `ok=true`.
+
+**Por que essa ordem:** chat_add eh a primeira chamada critica do disparo. Se falhar (numero invalido, sem WhatsApp), as atividades Pipedrive NAO sao criadas — antes ficavam fantasma marcadas como "Mensagem enviada" mesmo sem disparo real. Agora se chat_add falha, o lead vai pro log com `errs=["chat_add: ..."]` e fica disponivel pra correcao manual + retry.
 
 ---
 
@@ -183,7 +185,9 @@ Imprime o que faria sem chamar APIs.
 
 9. **PARAMETRO E `key`, NAO `api_key`** na API REST do ChatGuru. Confirmado em sessao com modelo que reescreveu sem consultar a skill — todas as chamadas voltam HTTP 400 com `key ou account_id não informado(s)`. **A engine ja usa `key`** corretamente.
 
-10. **Numero invalido no Pipedrive** — alguns leads tem phones bagunçados (sem DDI 55, prefixos invalidos como `90347`, digitos a mais). API ChatGuru retorna 400 "Chat nao existe". A engine registra em `errs` e segue. Listar pendentes no fim do batch pro usuario corrigir manualmente, depois re-rodar (dedup pula os ja feitos).
+10. **Numero invalido no Pipedrive** — alguns leads tem phones bagunçados (sem DDI 55, prefixos invalidos como `90347`, digitos a mais). API ChatGuru retorna 400 "Chat nao existe". A engine registra em `errs` e segue. **chat_add ja faz fallback 12<->13 chars** (via `chat_add_with_fallback`) antes de marcar erro — se o phone original veio 12 chars, tenta com 9; se veio 13, tenta sem. Listar pendentes no fim do batch pro usuario corrigir manualmente, depois re-rodar (dedup pula os ja feitos).
+
+13. **Nome do contato mal preenchido no Pipedrive** — alguns leads tem como nome um email (`fulano@dominio.com`), titulo profissional (`Psicóloga Fátima Cruz`), bot greeting (`Opa`, `Hola 👋`, `Quero Automatizar Funis`) ou nome de empresa (`Mister Massas`). A funcao `_clean_first_name` filtra esses casos: extrai segundo nome quando o primeiro eh titulo (Psicóloga -> Fátima), descarta emails com digitos, e cai em `amigo(a)` quando nao consegue extrair nome decente. Resultado: a saudacao "Oi {first_name}" nunca fica esquisita ("Oi Psicóloga,", "Oi Adrianocs16,").
 
 11. **Atividade Call atrasada** — se a hora `call_due_time_brt` ja passou no momento do disparo, atividade aparece como ATRASADA no Pipedrive. Decisao com usuario: aceitar (sinaliza urgencia) ou reagendar pra horario futuro. Se reagendar em batch:
     ```python
