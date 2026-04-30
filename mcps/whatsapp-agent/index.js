@@ -599,13 +599,14 @@ Pode filtrar por chat especifico (parametro "chat") e por periodo (after/before)
 Retorna mensagens com contexto: chat de origem, remetente e timestamp.
 Mensagens de audio nos resultados incluem campo transcription automaticamente.`,
   {
-    query: z.string().min(2).describe("Texto a buscar nas mensagens"),
+    query: z.string().min(2).describe("Texto a buscar"),
     chat: z.string().optional().describe("Limitar busca a um chat especifico (nome ou chat_id)"),
+    search_in: z.enum(["content", "chat_name", "both"]).default("both").describe("Onde buscar: content (texto das msgs), chat_name (nome do contato/grupo), ou both (default)"),
     limit: z.number().int().min(1).max(50).default(20),
     after: z.string().optional().describe("ISO timestamp — so mensagens apos esta data"),
     before: z.string().optional().describe("ISO timestamp — so mensagens antes desta data"),
   },
-  async ({ query, chat, limit, after, before }) => {
+  async ({ query, chat, search_in, limit, after, before }) => {
     try {
       let chat_id = null;
       if (chat) {
@@ -615,22 +616,119 @@ Mensagens de audio nos resultados incluem campo transcription automaticamente.`,
         chat_id = resolved.chat_id;
       }
 
-      let q = supabase
-        .from("v_messages_with_sender")
-        .select("id,chat_id,chat_display_name,chat_is_group,content,message_type,from_me,sender_contact_name,created_at,direction")
-        .ilike("content", `%${query}%`)
-        .order("created_at", { ascending: false })
-        .limit(limit);
+      const result = { query, search_in };
 
-      if (chat_id) q = q.eq("chat_id", chat_id);
-      if (after) q = q.gt("created_at", after);
-      if (before) q = q.lt("created_at", before);
+      // Busca em chat_name (contatos/grupos) — fix #9
+      if (search_in === "chat_name" || search_in === "both") {
+        const qNorm = normalize(query);
+        const { data: chats } = await supabase
+          .from("v_chats_with_contact")
+          .select("chat_id,chat_name,contact_name,is_group,last_message_at,last_received_at")
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .limit(500);
+        const chatMatches = (chats || []).filter(c => {
+          const name = normalize(c.chat_name || "");
+          const contact = normalize(c.contact_name || "");
+          return name.includes(qNorm) || contact.includes(qNorm);
+        }).slice(0, limit);
+        result.chats = chatMatches.map(c => ({
+          chat_id: c.chat_id,
+          name: c.contact_name || c.chat_name,
+          is_group: c.is_group,
+          last_message_at: c.last_message_at,
+          last_received_at: c.last_received_at,
+        }));
+      }
 
-      const { data, error } = await q;
-      if (error) return err(error.message);
+      // Busca em content (mensagens) — comportamento original
+      if (search_in === "content" || search_in === "both") {
+        let q = supabase
+          .from("v_messages_with_sender")
+          .select("id,chat_id,chat_display_name,chat_is_group,content,message_type,from_me,sender_contact_name,created_at,direction")
+          .ilike("content", `%${query}%`)
+          .order("created_at", { ascending: false })
+          .limit(limit);
 
-      const enriched = await enrichWithTranscriptions(data || []);
-      return ok({ results: enriched, count: enriched.length, query });
+        if (chat_id) q = q.eq("chat_id", chat_id);
+        if (after) q = q.gt("created_at", after);
+        if (before) q = q.lt("created_at", before);
+
+        const { data, error } = await q;
+        if (error) return err(error.message);
+
+        const enriched = await enrichWithTranscriptions(data || []);
+        result.messages = enriched;
+        result.message_count = enriched.length;
+      }
+
+      return ok(result);
+    } catch (e) {
+      return err(e.message);
+    }
+  }
+);
+
+// ─── transcribe_audio ────────────────────────────────────────────────────────
+server.tool(
+  "transcribe_audio",
+  `Forca transcricao de audios antigos que nao foram processados pelo cron automatico
+(ex: audios de grupos, audios mais antigos que 29 dias, ou audios que falharam).
+
+Aceita um message_id especifico OU um chat (transcreve ate 20 audios pendentes do chat).
+Salva o resultado em messages.content (cache permanente).
+Reaproveita a logica do cron transcribe-queue: prefere Supabase Storage, fallback CDN.`,
+  {
+    message_id: z.string().optional().describe("UUID da mensagem (de read/search). Transcreve so essa."),
+    chat: z.string().optional().describe("Nome/phone/chat_id. Transcreve ate 20 audios pendentes desse chat."),
+    limit: z.number().int().min(1).max(20).default(20).describe("Maximo de audios por chamada (so com chat). Default 20."),
+  },
+  async ({ message_id, chat, limit }) => {
+    try {
+      if (!OPENAI_API_KEY) return err("OPENAI_API_KEY nao configurada — transcricao indisponivel.");
+      if (!message_id && !chat) return err("Forneca message_id OU chat.");
+
+      let candidates;
+      if (message_id) {
+        const { data, error } = await supabase
+          .from("messages")
+          .select("id,chat_id,message_type,content")
+          .eq("id", message_id)
+          .single();
+        if (error) return err(error.message);
+        if (!AUDIO_TYPES.has(data.message_type)) return err(`Mensagem ${message_id} nao e audio (tipo=${data.message_type}).`);
+        candidates = [data];
+      } else {
+        const resolved = await resolveChat(chat);
+        if (resolved.error) return err(resolved.error);
+        if (resolved.candidates) return ok({ ambiguous: true, candidates: resolved.candidates });
+        const { data, error } = await supabase
+          .from("messages")
+          .select("id,chat_id,message_type,content")
+          .eq("chat_id", resolved.chat_id)
+          .in("message_type", Array.from(AUDIO_TYPES))
+          .or("content.is.null,content.eq.")
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        if (error) return err(error.message);
+        candidates = data || [];
+      }
+
+      if (!candidates.length) return ok({ transcribed: 0, skipped: 0, message: "Nenhum audio pendente" });
+
+      const enriched = await enrichWithTranscriptions(candidates);
+      const transcribed = enriched.filter(m => m.transcription && !String(m.transcription).startsWith("Erro")).length;
+      const failed = enriched.length - transcribed;
+
+      return ok({
+        transcribed,
+        failed,
+        total: enriched.length,
+        results: enriched.map(m => ({
+          id: m.id,
+          chat_id: m.chat_id,
+          transcription: m.transcription,
+        })),
+      });
     } catch (e) {
       return err(e.message);
     }
