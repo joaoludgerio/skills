@@ -63,6 +63,28 @@ function normalize(str) {
 }
 
 /**
+ * Gera variantes de telefone BR (com e sem o 9 do celular).
+ * Input: digitos sem formatacao.
+ * Retorna lista de strings candidatas pra busca em chats.
+ *
+ * Exemplos:
+ *   "5562981514742" (13d, com 9) \u2192 ["5562981514742", "556281514742"]
+ *   "556281514742"  (12d, sem 9) \u2192 ["556281514742", "5562981514742"]
+ *   "11999998888"   (curto)      \u2192 ["11999998888"]
+ */
+function normalizePhoneBR(digits) {
+  const out = new Set([digits]);
+  if (digits.startsWith("55") && digits.length === 13) {
+    // 55 DDD 9 XXXXXXXX \u2192 tira o 9 (posicao 4)
+    out.add(digits.slice(0, 4) + digits.slice(5));
+  } else if (digits.startsWith("55") && digits.length === 12) {
+    // 55 DDD XXXXXXXX \u2192 adiciona 9 antes do numero
+    out.add(digits.slice(0, 4) + "9" + digits.slice(4));
+  }
+  return Array.from(out);
+}
+
+/**
  * Distancia de Levenshtein entre duas strings.
  */
 function levenshtein(a, b) {
@@ -96,6 +118,12 @@ function fuzzyMatch(input, name) {
 /**
  * Resolve "to" (nome, telefone ou chat_id) para chat_id.
  * Retorna { chat_id, chat_name } ou { candidates } se ambiguo.
+ *
+ * Regras:
+ * - chat_id literal (com @ ou -group): pass-through.
+ * - Phone (>=8 digitos apos limpar): testa exact em chat_id, ilike em phone,
+ *   e variantes BR com/sem 9. Tambem casa com chat_ids @lid via contacts/v_chats.
+ * - Nome: busca em v_chats_with_contact (incluindo LIDs com nome no contact_name).
  */
 async function resolveChat(to) {
   // Ja e um chat_id valido (contem @ ou termina em -group)
@@ -103,34 +131,48 @@ async function resolveChat(to) {
     return { chat_id: to, chat_name: to };
   }
 
-  // So digitos: pode ser chat_id numerico ou telefone
+  // Limpa qualquer formatacao (parenteses, hifens, espacos) — fix #10
   const digits = to.replace(/\D/g, "");
+
+  // Branch numerico: tenta chat_id, phone, e variantes BR (com/sem 9) — fix #2
   if (digits.length >= 8) {
-    // Tenta como chat_id direto primeiro
+    const phoneCandidates = normalizePhoneBR(digits);
+
+    // 1. Match exato em chat_id (qualquer variante)
     const { data: byId } = await supabase
       .from("chats")
-      .select("chat_id,chat_name")
-      .eq("chat_id", digits)
-      .limit(1);
-    if (byId?.length) return { chat_id: byId[0].chat_id, chat_name: byId[0].chat_name };
+      .select("chat_id,chat_name,is_group")
+      .in("chat_id", phoneCandidates)
+      .limit(5);
+    if (byId?.length === 1) return { chat_id: byId[0].chat_id, chat_name: byId[0].chat_name };
+    if (byId?.length > 1) return { candidates: byId };
 
-    // Tenta como telefone no campo phone
+    // 2. Match em phone (incluindo LIDs cujo phone foi resolvido) — fixes #1
     const { data: byPhone } = await supabase
       .from("chats")
-      .select("chat_id,chat_name,phone")
-      .ilike("phone", `%${digits}%`)
-      .limit(3);
+      .select("chat_id,chat_name,phone,is_group")
+      .or(phoneCandidates.map(p => `phone.eq.${p}`).join(","))
+      .limit(5);
     if (byPhone?.length === 1) return { chat_id: byPhone[0].chat_id, chat_name: byPhone[0].chat_name };
     if (byPhone?.length > 1) return { candidates: byPhone };
+
+    // 3. Fallback ilike (substring match) — pega cadastros com formatacao residual
+    const { data: byPhoneLike } = await supabase
+      .from("chats")
+      .select("chat_id,chat_name,phone,is_group")
+      .ilike("phone", `%${digits}%`)
+      .limit(3);
+    if (byPhoneLike?.length === 1) return { chat_id: byPhoneLike[0].chat_id, chat_name: byPhoneLike[0].chat_name };
+    if (byPhoneLike?.length > 1) return { candidates: byPhoneLike };
   }
 
-  // Busca por nome — tenta primeiro com o texto original, depois normalizado (sem acento)
+  // Branch nome: v_chats_with_contact ja inclui LIDs com nome resolvido — fix #1+#8
   const toNorm = normalize(to);
   const { data: all } = await supabase
     .from("v_chats_with_contact")
     .select("chat_id,chat_name,contact_name,is_group")
-    .order("last_message_at", { ascending: false })
-    .limit(200);
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(500);
 
   if (!all?.length) return { error: `Nenhum chat encontrado para "${to}"` };
 
@@ -313,7 +355,7 @@ Mensagens de audio incluem campo transcription com o conteudo transcrito automat
     try {
       let q = supabase
         .from("v_chats_with_contact")
-        .select("chat_id,chat_name,contact_name,is_group,last_message_at")
+        .select("chat_id,chat_name,contact_name,is_group,last_message_at,last_received_at,last_sent_at,unread_count")
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(limit);
 
@@ -343,12 +385,19 @@ Mensagens de audio incluem campo transcription com o conteudo transcrito automat
 
       const result = (chats || []).map((c) => {
         const msg = enrichedByChat[c.chat_id];
+        // Quem deve responder agora? Se ultima recebida > ultima enviada, bola tah com Eric
+        const recv = c.last_received_at ? new Date(c.last_received_at).getTime() : 0;
+        const sent = c.last_sent_at ? new Date(c.last_sent_at).getTime() : 0;
+        const waiting_on = recv > sent ? "eric" : (sent > recv ? "lead" : "none");
         return {
           chat_id: c.chat_id,
           name: c.contact_name || c.chat_name,
           is_group: c.is_group,
           unread: c.unread_count || 0,
           last_message_at: c.last_message_at,
+          last_received_at: c.last_received_at,
+          last_sent_at: c.last_sent_at,
+          waiting_on,
           last_message: msg
             ? {
                 content: msg.content?.slice(0, 120),
@@ -441,10 +490,12 @@ FLUXO OBRIGATORIO (duas chamadas):
     content: z.string().default("").describe("Texto ou legenda da midia"),
     type: z.enum(["text", "image", "audio", "video", "document"]).default("text"),
     media_url: z.string().url().optional().describe("URL publica da midia (obrigatorio se type != text)"),
+    file_name: z.string().optional().describe("Nome do arquivo para type=document (ex: 'proposta.pdf'). Se omitido, usa content como fallback."),
     reply_to: z.string().optional().describe("UUID da mensagem para responder (quote reply)"),
     confirmed: z.boolean().default(false).describe("OBRIGATORIO true para enviar. So passe true apos mostrar destinatario+conteudo ao usuario e receber confirmacao explicita."),
+    allow_new: z.boolean().default(false).describe("Se true, permite enviar para numeros que ainda nao existem em chats (primeiro contato). Cria entrada em chats automaticamente. Use para dispatch consciente."),
   },
-  async ({ to, content, type, media_url, reply_to, confirmed }) => {
+  async ({ to, content, type, media_url, file_name, reply_to, confirmed, allow_new }) => {
     if (!confirmed) {
       return {
         content: [{
@@ -466,8 +517,40 @@ FLUXO OBRIGATORIO (duas chamadas):
     }
 
     try {
-      const resolved = await resolveChat(to);
-      if (resolved.error) return err(resolved.error);
+      let resolved = await resolveChat(to);
+
+      // Se chat nao foi achado, mas to parece phone valido E allow_new=true → cria — fix #3
+      if (resolved.error) {
+        const digits = to.replace(/\D/g, "");
+        const looksLikePhone = digits.length >= 10 && digits.length <= 13;
+
+        if (!allow_new) {
+          return err(
+            looksLikePhone
+              ? `Numero "${to}" nao esta em chats. Se for primeiro contato, passe allow_new=true (junto com confirmed=true).`
+              : resolved.error
+          );
+        }
+
+        if (!looksLikePhone) {
+          return err(`allow_new=true so funciona com phone valido (10-13 digitos). Recebido: "${to}".`);
+        }
+
+        // Cria chat minimo (will be enriched quando a primeira resposta chegar via webhook)
+        const newChatId = digits.startsWith("55") ? digits : `55${digits}`;
+        const { error: insErr } = await supabase
+          .from("chats")
+          .upsert({
+            chat_id: newChatId,
+            phone: newChatId,
+            chat_name: newChatId,
+            is_group: false,
+            last_message_at: new Date().toISOString(),
+          }, { onConflict: "chat_id" });
+        if (insErr) return err(`Falha ao criar chat novo: ${insErr.message}`);
+        resolved = { chat_id: newChatId, chat_name: newChatId, _new: true };
+      }
+
       if (resolved.candidates) {
         return ok({
           ambiguous: true,
@@ -488,6 +571,7 @@ FLUXO OBRIGATORIO (duas chamadas):
         content,
         message_type: type,
         ...(media_url && { media_url }),
+        ...(file_name && { file_name }),
         ...(reply_to && { quoted_msg_id: reply_to }),
       };
 
@@ -499,7 +583,7 @@ FLUXO OBRIGATORIO (duas chamadas):
 
       const result = await res.json();
       if (!res.ok) return err(result?.error || `HTTP ${res.status}`);
-      return ok({ sent: true, to: resolved.chat_name, ...result });
+      return ok({ sent: true, to: resolved.chat_name, ...(resolved._new && { new_chat: true }), ...result });
     } catch (e) {
       return err(e.message);
     }
