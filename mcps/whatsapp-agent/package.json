@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-agent-mcp",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "MCP server para WhatsApp Agent (Z-API + Supabase) — Expert Integrado",
   "type": "module",
   "main": "index.js",

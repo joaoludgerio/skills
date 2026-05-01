@@ -506,7 +506,7 @@ async function enrichWithTranscriptions(messages) {
 
 // ─── SERVER ──────────────────────────────────────────────────────────────────
 
-const server = new McpServer({ name: "whatsapp-agent", version: "2.2.0" });
+const server = new McpServer({ name: "whatsapp-agent", version: "2.3.0" });
 
 // ─── 1. inbox ────────────────────────────────────────────────────────────────
 server.tool(
@@ -1073,6 +1073,178 @@ Retorna: total de grupos encontrados na Z-API, quantos foram atualizados no banc
         updated,
         ...(not_found.length > 0 && { not_found }),
         dry_run,
+      });
+    } catch (e) {
+      return err(e.message);
+    }
+  }
+);
+
+// ─── CATEGORIES TOOLS ────────────────────────────────────────────────────────
+
+server.tool(
+  "list_categories",
+  `Lista todas as categorias disponiveis pra classificar chats.
+Use antes de chamar categorize_chat pra saber quais slugs sao validos.
+Retorna: array de { slug, label, color, description, parent_slug }.
+
+Slugs sao normalizados (lowercase ascii). Eric pode adicionar categorias novas
+diretamente no DB ou via tool no futuro — sempre listar primeiro.`,
+  {},
+  async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id,slug,label,color,description,parent_id,created_at")
+        .order("label", { ascending: true });
+      if (error) return err(error.message);
+
+      // Resolve parent_slug pro consumidor entender hierarquia sem segundo lookup
+      const byId = Object.fromEntries((data || []).map(c => [c.id, c.slug]));
+      return ok({
+        categories: (data || []).map(c => ({
+          slug: c.slug,
+          label: c.label,
+          color: c.color,
+          description: c.description,
+          parent_slug: c.parent_id ? byId[c.parent_id] || null : null,
+        })),
+        total: data?.length || 0,
+      });
+    } catch (e) {
+      return err(e.message);
+    }
+  }
+);
+
+server.tool(
+  "categorize_chat",
+  `Atribui uma ou mais categorias a um chat. Idempotente: rerun com mesma combinacao
+nao falha (ON CONFLICT DO NOTHING).
+
+Use depois de list_categories pra saber slugs validos. Se passar slug invalido
+retorna erro com a lista de slugs aceitos.
+
+Param assigned_by indica origem da atribuicao:
+- "manual" — Eric atribuiu (default)
+- "llm"    — Modelo categorizou; passa confidence (0-1)
+- "rule:X" — Regra automatica (futuro)
+
+Multi-valor: 1 chat pode ter varias categorias (ex: cliente + saude pra um plano
+de saude que o Eric paga). Slug unico por chat (PK chat_id+category_id).
+
+Retorna: { chat_id, chat_name, applied: [...slugs aplicados], skipped: [...slugs ja existiam] }.`,
+  {
+    chat: z.string().describe("Nome, telefone ou chat_id da conversa (mesmo formato de read/send)"),
+    category_slugs: z.array(z.string()).min(1).describe("Lista de slugs (ex: ['cliente', 'saude']). Use list_categories pra ver opcoes."),
+    assigned_by: z.enum(["manual", "llm"]).default("manual"),
+    confidence: z.number().min(0).max(1).optional().describe("Obrigatorio quando assigned_by=llm"),
+    notes: z.string().optional().describe("Justificativa opcional (especialmente util pra llm)"),
+  },
+  async ({ chat, category_slugs, assigned_by, confidence, notes }) => {
+    try {
+      if (assigned_by === "llm" && (confidence === undefined || confidence === null)) {
+        return err("confidence e obrigatorio quando assigned_by=llm");
+      }
+
+      const resolved = await resolveChat(chat);
+      if (resolved.error) return err(resolved.error);
+      if (resolved.candidates) {
+        return ok({ ambiguous: true, candidates: resolved.candidates });
+      }
+
+      // Resolve slugs -> ids; reporta slugs invalidos
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id,slug")
+        .in("slug", category_slugs);
+
+      const validSlugs = new Set((cats || []).map(c => c.slug));
+      const invalid = category_slugs.filter(s => !validSlugs.has(s));
+      if (invalid.length) {
+        const { data: all } = await supabase.from("categories").select("slug").order("slug");
+        return err(`Slug(s) invalido(s): ${invalid.join(", ")}. Slugs validos: ${(all||[]).map(c=>c.slug).join(", ")}.`);
+      }
+
+      // Quem ja existe? (pra reportar "skipped" honestamente)
+      const { data: existing } = await supabase
+        .from("chat_categories")
+        .select("category_id")
+        .eq("chat_id", resolved.chat_id)
+        .in("category_id", cats.map(c => c.id));
+      const existingIds = new Set((existing || []).map(e => e.category_id));
+
+      const toInsert = cats.filter(c => !existingIds.has(c.id)).map(c => ({
+        chat_id: resolved.chat_id,
+        category_id: c.id,
+        assigned_by,
+        ...(confidence !== undefined && { confidence }),
+        ...(notes && { notes }),
+      }));
+
+      if (toInsert.length) {
+        const { error: insErr } = await supabase
+          .from("chat_categories")
+          .upsert(toInsert, { onConflict: "chat_id,category_id" });
+        if (insErr) return err(`Falha ao inserir: ${insErr.message}`);
+      }
+
+      const slugById = Object.fromEntries(cats.map(c => [c.id, c.slug]));
+      return ok({
+        chat_id: resolved.chat_id,
+        chat_name: resolved.chat_name,
+        applied: toInsert.map(t => slugById[t.category_id]),
+        skipped: [...existingIds].map(id => slugById[id]),
+      });
+    } catch (e) {
+      return err(e.message);
+    }
+  }
+);
+
+server.tool(
+  "uncategorize_chat",
+  `Remove uma ou mais categorias de um chat. Categorias nao atribuidas sao ignoradas
+(no-op, nao retorna erro).
+
+Use quando perceber que categorizou errado, ou quando a relacao mudou
+(ex: cliente virou ex-cliente).
+
+Retorna: { chat_id, chat_name, removed: [...slugs removidos] }.`,
+  {
+    chat: z.string().describe("Nome, telefone ou chat_id da conversa"),
+    category_slugs: z.array(z.string()).min(1).describe("Slugs a remover"),
+  },
+  async ({ chat, category_slugs }) => {
+    try {
+      const resolved = await resolveChat(chat);
+      if (resolved.error) return err(resolved.error);
+      if (resolved.candidates) {
+        return ok({ ambiguous: true, candidates: resolved.candidates });
+      }
+
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id,slug")
+        .in("slug", category_slugs);
+      if (!cats?.length) return ok({ chat_id: resolved.chat_id, removed: [] });
+
+      const ids = cats.map(c => c.id);
+      const slugById = Object.fromEntries(cats.map(c => [c.id, c.slug]));
+
+      const { data: removed, error: delErr } = await supabase
+        .from("chat_categories")
+        .delete()
+        .eq("chat_id", resolved.chat_id)
+        .in("category_id", ids)
+        .select("category_id");
+
+      if (delErr) return err(`Falha ao remover: ${delErr.message}`);
+
+      return ok({
+        chat_id: resolved.chat_id,
+        chat_name: resolved.chat_name,
+        removed: (removed || []).map(r => slugById[r.category_id]),
       });
     } catch (e) {
       return err(e.message);
