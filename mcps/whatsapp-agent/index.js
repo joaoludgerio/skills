@@ -55,11 +55,34 @@ function err(msg) {
   return { content: [{ type: "text", text: `ERRO: ${msg}` }], isError: true };
 }
 
+// \u2500\u2500\u2500 SCORING CONSTANTS (calibradas contra DB real, ver test-resolve.js) \u2500\u2500\u2500\u2500\u2500\u2500
+// Tier de match no nome \u2014 gap de >= 15 entre top e runner-up significa "vence claramente".
+const SCORE_EXACT       = 100;  // chat_name === input apos normalize
+const SCORE_STARTS_WITH =  80;  // chat_name comeca com input (ex: "Cesar" -> "Cesar Barboza")
+const SCORE_WORD        =  70;  // input e palavra inteira em chat_name (ex: "Barboza")
+const SCORE_SUBSTRING   =  50;  // input e substring contigua
+const SCORE_FUZZY       =  25;  // Levenshtein por palavra dentro do threshold
+
+// Boost aditivo aplicado em cima do score base \u2014 tiebreakers entre chats com mesmo nome
+const BOOST_NOT_GROUP    = 4;   // 1:1 > grupo (CEO geralmente quer pessoa)
+const BOOST_NOT_LID      = 3;   // chat_id puro digit > @lid (LID e ID interno do WhatsApp)
+const BOOST_RECENT_7D    = 4;   // mensagem na ultima semana = chat ativo
+const BOOST_RECENT_30D   = 2;   // mensagem no ultimo mes = morno
+const FUZZY_THRESHOLD_RATIO = 0.25;  // Lev <= floor(len * ratio), minimo 1
+const MIN_CONFIDENT_SCORE = 80; // top precisa ter pelo menos isso pra "vencer claramente"
+const MIN_WINNING_GAP     = 15; // ... E gap de pelo menos isso pro runner-up
+
 /**
- * Normaliza string para busca: remove acentos e converte pra minusculo.
+ * Normaliza string para busca: remove acentos, converte pra minusculo,
+ * colapsa espacos e trim. Aplicada antes de qualquer comparacao por nome.
  */
 function normalize(str) {
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return (str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -73,13 +96,50 @@ function normalize(str) {
  *   "11999998888"   (curto)      \u2192 ["11999998888"]
  */
 function normalizePhoneBR(digits) {
-  const out = new Set([digits]);
-  if (digits.startsWith("55") && digits.length === 13) {
-    // 55 DDD 9 XXXXXXXX \u2192 tira o 9 (posicao 4)
-    out.add(digits.slice(0, 4) + digits.slice(5));
-  } else if (digits.startsWith("55") && digits.length === 12) {
-    // 55 DDD XXXXXXXX \u2192 adiciona 9 antes do numero
-    out.add(digits.slice(0, 4) + "9" + digits.slice(4));
+  const out = new Set();
+  if (!digits) return [];
+  out.add(digits);
+
+  const flipNine = (d) => {
+    if (d.length === 13 && d.startsWith("55") && d[4] === "9") {
+      // 55 DDD 9 XXXXXXXX -> tira o 9
+      out.add(d.slice(0, 4) + d.slice(5));
+    } else if (d.length === 12 && d.startsWith("55")) {
+      // 55 DDD XXXXXXXX -> adiciona o 9
+      out.add(d.slice(0, 4) + "9" + d.slice(4));
+    }
+  };
+  flipNine(digits);
+
+  // Sem prefixo 55 mas length 10 ou 11 cabe num phone BR domestico (DDD + 8d ou DDD + 9d)
+  if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+    const with55 = "55" + digits;
+    out.add(with55);
+    flipNine(with55);
+  }
+
+  return Array.from(out);
+}
+
+/**
+ * Extrai os digitos iniciais do chat_id (parte antes de @ ou -group).
+ * Retorna null se chat_id nao comeca com digitos.
+ */
+function chatIdDigits(chat_id) {
+  if (!chat_id) return null;
+  const m = String(chat_id).match(/^(\d+)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Para cada variante de phone, gera todos os formatos de chat_id que ela poderia assumir.
+ * Cobre: numero puro, @s.whatsapp.net, @c.us, @lid (raro), -group, @g.us.
+ */
+function expandChatIdCandidates(phoneVariants) {
+  const suffixes = ["", "@s.whatsapp.net", "@c.us", "@lid", "-group", "@g.us"];
+  const out = new Set();
+  for (const v of phoneVariants) {
+    for (const s of suffixes) out.add(v + s);
   }
   return Array.from(out);
 }
@@ -110,91 +170,201 @@ function fuzzyMatch(input, name) {
   const nameParts = name.split(/\s+/).filter(Boolean);
   if (!nameParts.length) return false;
   return inputParts.every((ip) => {
-    const threshold = Math.max(2, Math.floor(ip.length * 0.3));
+    // Threshold apertado pra reduzir falsos positivos (ex: "barboza" nao casa "barbara")
+    const threshold = Math.max(1, Math.floor(ip.length * FUZZY_THRESHOLD_RATIO));
     return nameParts.some((np) => levenshtein(ip, np) <= threshold);
   });
 }
 
 /**
- * Resolve "to" (nome, telefone ou chat_id) para chat_id.
- * Retorna { chat_id, chat_name } ou { candidates } se ambiguo.
+ * Determina quao bem um chat casa com o input (nome).
+ * Retorna { score, kind } onde score 0 = nao casa, mais alto = melhor match.
+ */
+function scoreNameMatch(input, chat) {
+  const name = normalize(chat.chat_name || "");
+  const contact = normalize(chat.contact_name || "");
+  if (!name && !contact) return { score: 0, kind: "miss" };
+
+  if (name === input || contact === input) return { score: SCORE_EXACT, kind: "exact" };
+  if (name.startsWith(input) || contact.startsWith(input)) return { score: SCORE_STARTS_WITH, kind: "starts" };
+
+  const allWords = (name + " " + contact).split(/\s+/).filter(Boolean);
+  if (allWords.includes(input)) return { score: SCORE_WORD, kind: "word" };
+
+  if (name.includes(input) || contact.includes(input)) return { score: SCORE_SUBSTRING, kind: "substring" };
+  if (fuzzyMatch(input, name) || fuzzyMatch(input, contact)) return { score: SCORE_FUZZY, kind: "fuzzy" };
+  return { score: 0, kind: "miss" };
+}
+
+/**
+ * Aplica boost a chats com base em sinais de qualidade:
+ * - Nao-grupo > grupo
+ * - chat_id puro digit > @lid
+ * - Atividade recente
+ */
+function applyChatBoost(score, chat) {
+  let boost = 0;
+  if (!chat.is_group) boost += BOOST_NOT_GROUP;
+  if (chat.chat_id && !String(chat.chat_id).includes("@lid")) boost += BOOST_NOT_LID;
+  if (chat.last_message_at) {
+    const days = (Date.now() - new Date(chat.last_message_at).getTime()) / 86400000;
+    if (days < 7) boost += BOOST_RECENT_7D;
+    else if (days < 30) boost += BOOST_RECENT_30D;
+  }
+  return score + boost;
+}
+
+/**
+ * Resolve "to" (nome, telefone ou chat_id) para um chat_id concreto.
  *
- * Regras:
- * - chat_id literal (com @ ou -group): pass-through.
- * - Phone (>=8 digitos apos limpar): testa exact em chat_id, ilike em phone,
- *   e variantes BR com/sem 9. Tambem casa com chat_ids @lid via contacts/v_chats.
- * - Nome: busca em v_chats_with_contact (incluindo LIDs com nome no contact_name).
+ * Retorna:
+ *   { chat_id, chat_name }              -> match unico ou top score claramente vencedor
+ *   { candidates: [...] }               -> >1 match com score parecido (ambiguo)
+ *   { error: "..." }                    -> nada encontrado
+ *
+ * Estrategia em camadas (early return assim que ha resultado claro):
+ *   1. Pass-through para chat_id literal (digits + sufixo @x ou -group)
+ *   2. Branch numerico: phone com 8+ digitos
+ *      - Match exato em chat_id usando todas as variantes BR (com/sem 55, com/sem 9)
+ *        + sufixos comuns (@s.whatsapp.net, @c.us, @lid, -group, @g.us)
+ *      - Fallback prefix LIKE (chat_id ~ '^digits') para cobrir formatos raros
+ *   3. Branch nome: busca client-side em v_chats_with_contact (1500 rows, todos)
+ *      com scoring (exato > startsWith > word > substring > fuzzy) + boost de
+ *      qualidade (nao-grupo, nao-LID, atividade recente).
+ *      Top score >= 80 e gap >= 15 -> resolve sozinho. Senao, retorna candidatos.
+ *
+ * Multi-layer fail open: se branch numerico nao encontra nada, ainda tenta nome.
  */
 async function resolveChat(to) {
-  // Ja e um chat_id valido (contem @ ou termina em -group)
-  if (to.includes("@") || to.endsWith("-group")) {
+  if (!to || !String(to).trim()) return { error: "Input vazio" };
+  to = String(to).trim();
+
+  // 1. chat_id literal (digits + sufixo) -> tenta confirmar; passthrough se nao achar
+  if (/^[0-9]+(@[a-z.]+|-group)$/i.test(to)) {
+    const { data } = await supabase
+      .from("v_chats_with_contact")
+      .select("chat_id,chat_name,contact_name,is_group")
+      .eq("chat_id", to)
+      .limit(1);
+    if (data?.length) {
+      return { chat_id: data[0].chat_id, chat_name: data[0].chat_name || data[0].contact_name || to };
+    }
     return { chat_id: to, chat_name: to };
   }
 
-  // Limpa qualquer formatacao (parenteses, hifens, espacos) — fix #10
+  // Detecta se input parece phone (digit + separadores comuns)
   const digits = to.replace(/\D/g, "");
+  const looksLikePhone = digits.length >= 8 && /^[\d\s+()\-.]+$/.test(to);
 
-  // Branch numerico: tenta chat_id, phone, e variantes BR (com/sem 9) — fix #2
-  if (digits.length >= 8) {
-    const phoneCandidates = normalizePhoneBR(digits);
+  // 2. Branch numerico
+  if (looksLikePhone) {
+    const phoneVariants = normalizePhoneBR(digits);
+    const idCandidates = expandChatIdCandidates(phoneVariants);
 
-    // 1. Match exato em chat_id (qualquer variante)
-    const { data: byId } = await supabase
-      .from("chats")
-      .select("chat_id,chat_name,is_group")
-      .in("chat_id", phoneCandidates)
-      .limit(5);
-    if (byId?.length === 1) return { chat_id: byId[0].chat_id, chat_name: byId[0].chat_name };
-    if (byId?.length > 1) return { candidates: byId };
+    // 2a. Match exato em chat_id contra todas as variantes
+    // Tiebreaker chat_id ASC garante ordem deterministica em empates de last_message_at
+    const { data: exact } = await supabase
+      .from("v_chats_with_contact")
+      .select("chat_id,chat_name,contact_name,is_group,last_message_at")
+      .in("chat_id", idCandidates)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .order("chat_id", { ascending: true })
+      .limit(10);
 
-    // 2. Match em phone (incluindo LIDs cujo phone foi resolvido) — fixes #1
-    const { data: byPhone } = await supabase
-      .from("chats")
-      .select("chat_id,chat_name,phone,is_group")
-      .or(phoneCandidates.map(p => `phone.eq.${p}`).join(","))
-      .limit(5);
-    if (byPhone?.length === 1) return { chat_id: byPhone[0].chat_id, chat_name: byPhone[0].chat_name };
-    if (byPhone?.length > 1) return { candidates: byPhone };
+    if (exact?.length === 1) {
+      return { chat_id: exact[0].chat_id, chat_name: exact[0].chat_name || exact[0].contact_name };
+    }
+    if (exact?.length > 1) {
+      const ranked = exact.map(c => ({ ...c, _score: applyChatBoost(50, c) }))
+                          .sort((a, b) => b._score - a._score);
+      if (ranked[0]._score - ranked[1]._score >= 5) {
+        return { chat_id: ranked[0].chat_id, chat_name: ranked[0].chat_name || ranked[0].contact_name };
+      }
+      return { candidates: ranked.slice(0, 5).map(c => ({
+        chat_id: c.chat_id, name: c.chat_name || c.contact_name, is_group: c.is_group,
+      })) };
+    }
 
-    // 3. Fallback ilike (substring match) — pega cadastros com formatacao residual
-    const { data: byPhoneLike } = await supabase
-      .from("chats")
-      .select("chat_id,chat_name,phone,is_group")
-      .ilike("phone", `%${digits}%`)
-      .limit(3);
-    if (byPhoneLike?.length === 1) return { chat_id: byPhoneLike[0].chat_id, chat_name: byPhoneLike[0].chat_name };
-    if (byPhoneLike?.length > 1) return { candidates: byPhoneLike };
+    // 2b. Fallback: prefix match em chat_id pra digitos sem sufixo conhecido
+    const longest = phoneVariants.slice().sort((a, b) => b.length - a.length)[0];
+    if (longest && longest.length >= 8) {
+      const { data: prefix } = await supabase
+        .from("v_chats_with_contact")
+        .select("chat_id,chat_name,contact_name,is_group,last_message_at")
+        .like("chat_id", `${longest}%`)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("chat_id", { ascending: true })
+        .limit(5);
+      if (prefix?.length === 1) {
+        return { chat_id: prefix[0].chat_id, chat_name: prefix[0].chat_name || prefix[0].contact_name };
+      }
+      if (prefix?.length > 1) {
+        const ranked = prefix.map(c => ({ ...c, _score: applyChatBoost(40, c) }))
+                             .sort((a, b) => b._score - a._score);
+        if (ranked[0]._score - ranked[1]._score >= 5) {
+          return { chat_id: ranked[0].chat_id, chat_name: ranked[0].chat_name || ranked[0].contact_name };
+        }
+        return { candidates: ranked.slice(0, 5).map(c => ({
+          chat_id: c.chat_id, name: c.chat_name || c.contact_name, is_group: c.is_group,
+        })) };
+      }
+    }
+    // Nada bateu pra phone — cai pro branch nome (input talvez seja codigo numerico que e nome)
   }
 
-  // Branch nome: v_chats_with_contact ja inclui LIDs com nome resolvido — fix #1+#8
+  // 3. Branch nome
+  // TODO: migrar pra pg_trgm + similarity() server-side quando chats > 3000.
+  // O indice idx_chats_name_trgm (gin_trgm_ops) ja existe — basta usar.
+  // Mantem hibrido: trgm corta top 50, rerank com applyChatBoost in-memory.
   const toNorm = normalize(to);
+  if (!toNorm) return { error: `Nenhum chat encontrado para "${to}"` };
+
   const { data: all } = await supabase
     .from("v_chats_with_contact")
-    .select("chat_id,chat_name,contact_name,is_group")
+    .select("chat_id,chat_name,contact_name,is_group,last_message_at")
     .order("last_message_at", { ascending: false, nullsFirst: false })
-    .limit(500);
+    .order("chat_id", { ascending: true })
+    .limit(1500);
 
-  if (!all?.length) return { error: `Nenhum chat encontrado para "${to}"` };
+  if (!all?.length) return { error: "Tabela de chats vazia" };
 
-  const matches = all.filter((c) => {
-    const name = normalize(c.chat_name || "");
-    const contact = normalize(c.contact_name || "");
-    return name.includes(toNorm) || contact.includes(toNorm);
-  });
+  const scored = all.map(c => {
+    const { score, kind } = scoreNameMatch(toNorm, c);
+    return { ...c, _score: score > 0 ? applyChatBoost(score, c) : 0, _kind: kind };
+  }).filter(c => c._score > 0)
+    .sort((a, b) => b._score - a._score || String(a.chat_id).localeCompare(String(b.chat_id)));
 
-  if (!matches.length) {
-    // Fallback fuzzy: Levenshtein por palavra quando includes() nao encontra
-    const fuzzy = all.filter((c) => {
-      const name = normalize(c.chat_name || "");
-      const contact = normalize(c.contact_name || "");
-      return fuzzyMatch(toNorm, name) || fuzzyMatch(toNorm, contact);
-    });
-    if (!fuzzy.length) return { error: `Nenhum chat encontrado para "${to}"` };
-    if (fuzzy.length === 1) return { chat_id: fuzzy[0].chat_id, chat_name: fuzzy[0].chat_name || fuzzy[0].contact_name };
-    return { candidates: fuzzy };
+  if (!scored.length) return { error: `Nenhum chat encontrado para "${to}"` };
+  if (scored.length === 1) {
+    return { chat_id: scored[0].chat_id, chat_name: scored[0].chat_name || scored[0].contact_name };
   }
-  if (matches.length === 1) return { chat_id: matches[0].chat_id, chat_name: matches[0].chat_name || matches[0].contact_name };
-  return { candidates: matches };
+
+  const top = scored[0], runner = scored[1];
+  const topIsLid = String(top.chat_id || "").includes("@lid");
+  const runnerIsLid = String(runner.chat_id || "").includes("@lid");
+
+  // Twin chat: exatamente 2 candidatos, mesmo nome, um e phone e outro e LID -> prefere o phone
+  // (independente de score — vale tambem quando o match veio via fuzzy)
+  if (scored.length === 2) {
+    const topName = normalize(top.chat_name || top.contact_name || "");
+    const runnerName = normalize(runner.chat_name || runner.contact_name || "");
+    if (topName && topName === runnerName && topIsLid !== runnerIsLid) {
+      const phoneOne = topIsLid ? runner : top;
+      return { chat_id: phoneOne.chat_id, chat_name: phoneOne.chat_name || phoneOne.contact_name };
+    }
+  }
+
+  // Top vence claramente: score >= MIN_CONFIDENT_SCORE e gap >= MIN_WINNING_GAP
+  if (top._score >= MIN_CONFIDENT_SCORE && top._score - runner._score >= MIN_WINNING_GAP) {
+    return { chat_id: top.chat_id, chat_name: top.chat_name || top.contact_name };
+  }
+
+  return { candidates: scored.slice(0, 10).map(c => ({
+    chat_id: c.chat_id,
+    name: c.chat_name || c.contact_name,
+    is_group: c.is_group,
+    last_message_at: c.last_message_at,
+  })) };
 }
 
 // ─── AUDIO TRANSCRIPTION ─────────────────────────────────────────────────────
@@ -336,7 +506,7 @@ async function enrichWithTranscriptions(messages) {
 
 // ─── SERVER ──────────────────────────────────────────────────────────────────
 
-const server = new McpServer({ name: "whatsapp-agent", version: "2.1.0" });
+const server = new McpServer({ name: "whatsapp-agent", version: "2.2.0" });
 
 // ─── 1. inbox ────────────────────────────────────────────────────────────────
 server.tool(
@@ -357,6 +527,7 @@ Mensagens de audio incluem campo transcription com o conteudo transcrito automat
         .from("v_chats_with_contact")
         .select("chat_id,chat_name,contact_name,is_group,last_message_at,last_received_at,last_sent_at,unread_count")
         .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("chat_id", { ascending: true })
         .limit(limit);
 
       if (unread_only) q = q.gt("unread_count", 0);
@@ -618,25 +789,28 @@ Mensagens de audio nos resultados incluem campo transcription automaticamente.`,
 
       const result = { query, search_in };
 
-      // Busca em chat_name (contatos/grupos) — fix #9
+      // Busca em chat_name (contatos/grupos) — fix #9, com scoring v2.2.0
       if (search_in === "chat_name" || search_in === "both") {
         const qNorm = normalize(query);
         const { data: chats } = await supabase
           .from("v_chats_with_contact")
           .select("chat_id,chat_name,contact_name,is_group,last_message_at,last_received_at")
           .order("last_message_at", { ascending: false, nullsFirst: false })
-          .limit(500);
-        const chatMatches = (chats || []).filter(c => {
-          const name = normalize(c.chat_name || "");
-          const contact = normalize(c.contact_name || "");
-          return name.includes(qNorm) || contact.includes(qNorm);
-        }).slice(0, limit);
-        result.chats = chatMatches.map(c => ({
+          .order("chat_id", { ascending: true })
+          .limit(1500);
+        const ranked = (chats || []).map(c => {
+          const { score, kind } = scoreNameMatch(qNorm, c);
+          return { ...c, _score: score > 0 ? applyChatBoost(score, c) : 0, _kind: kind };
+        }).filter(c => c._score > 0)
+          .sort((a, b) => b._score - a._score || String(a.chat_id).localeCompare(String(b.chat_id)))
+          .slice(0, limit);
+        result.chats = ranked.map(c => ({
           chat_id: c.chat_id,
           name: c.contact_name || c.chat_name,
           is_group: c.is_group,
           last_message_at: c.last_message_at,
           last_received_at: c.last_received_at,
+          match: c._kind,
         }));
       }
 
