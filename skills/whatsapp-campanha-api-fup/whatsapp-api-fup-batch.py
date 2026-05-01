@@ -125,8 +125,16 @@ def _is_chat_not_found(r):
     desc_lower = desc.lower()
     return ('chat n' in desc_lower) or ('não encontrado' in desc_lower) or ('nao encontrado' in desc_lower)
 
+def _normalize_phone(phone):
+    """Remove TODOS os caracteres nao-digitos do telefone.
+    Pipedrive guarda como '(47) 99756-5906' as vezes; ChatGuru exige so digitos.
+    Sem normalizacao, ChatGuru retorna HTTP 400 BAD REQUEST."""
+    import re
+    return re.sub(r'[^\d]', '', str(phone or ''))
+
 def disparar(creds, deal_id, person_id, phone, miolo, dialog_id, name=None):
     """Executa as 5 fases pra 1 lead. Retorna dict com resultado."""
+    phone = _normalize_phone(phone)  # remove (), -, espacos antes de qualquer chamada
     erro = None; chat_id = None; phone_used = phone; chat_added = False
 
     # F2 + F2.6: 3 campos numa chamada (com fallback de phone)
