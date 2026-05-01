@@ -1,6 +1,6 @@
 ---
 name: tweet-print
-description: Gera imagem PNG estilo "tweet print" (mockup de post do X/Twitter) para postar no Instagram, LinkedIn ou outras redes. Aceita texto com palavras em negrito (markdown **word**), avatar real, selo verificado, tema claro/escuro/branco e formato feed/retrato/story. TRIGGER quando o usuario pedir "tweet print", "fake tweet", "post tipo tweet", "post estilo X", "post estilo Twitter", "mockup de tweet", "imagem de tweet pro feed", "carrossel de tweets", "transforma esse texto em tweet print", ou similar.
+description: Gera imagem PNG estilo "tweet print" (mockup de post do X/Twitter) para postar no Instagram, LinkedIn ou outras redes. Aceita texto com palavras em negrito (markdown **word**), avatar real, selo verificado, tema claro/escuro/branco, formato feed/retrato/story e modo carrossel nativo. TRIGGER quando o usuario pedir "tweet print", "fake tweet", "post tipo tweet", "post estilo X", "post estilo Twitter", "mockup de tweet", "imagem de tweet pro feed", "carrossel de tweets", "transforma esse texto em tweet print", "post de Instagram tipo tweet", "post estilo print viral", "viraliza essa frase", "transforma em meme estilo tweet", ou similar.
 ---
 
 # Tweet Print — Mockup de Post do X/Twitter
@@ -81,12 +81,32 @@ python generate.py \
   --output "./tweet-claudio.png"
 ```
 
-Carrossel (chamar N vezes com `--output` numerado):
+Carrossel (modo nativo — gera N PNGs numerados em uma so chamada):
 
 ```bash
-python generate.py --text "**Slide 1** texto" --output ./carrossel-01.png ...
-python generate.py --text "**Slide 2** texto" --output ./carrossel-02.png ...
+python generate.py \
+  --texts "**1/** primeira tese" "**2/** segunda tese" "**3/** punchline final" \
+  --avatar "C:/caminho/foto.jpg" \
+  --output-prefix "./meu-carrossel"
+
+# Gera: ./meu-carrossel-01.png, ./meu-carrossel-02.png, ./meu-carrossel-03.png
 ```
+
+### Avatar default por usuario
+
+Para cada colaborador setar sua propria foto uma vez e nao precisar passar `--avatar` toda vez, definir env var:
+
+**Windows (PowerShell, persistente):**
+```powershell
+[Environment]::SetEnvironmentVariable("TWEET_PRINT_DEFAULT_AVATAR", "C:\Users\seu-user\foto.jpg", "User")
+```
+
+**Mac/Linux (bashrc/zshrc):**
+```bash
+export TWEET_PRINT_DEFAULT_AVATAR="/Users/seu-user/foto.jpg"
+```
+
+A skill usa essa variavel se `--avatar` nao for passado. Se a variavel nao existir e `--avatar` nao for passado, usa inicial estilizada como fallback.
 
 ### 4. Mostrar o resultado
 
@@ -147,12 +167,13 @@ O usuario marca palavras com `**dois asteriscos**`. Exemplos:
 
 ---
 
-## PROXIMOS PASSOS POSSIVEIS (V2)
+## PROXIMOS PASSOS POSSIVEIS (V3)
 
-- Modo carrossel nativo (`--texts-file lista.txt` gera N slides numerados)
 - Embarcar fonte Inter local (offline)
 - Exportar tambem como JPG (menor)
 - Adicionar timestamp / data fake para autenticidade
 - Adicionar contadores de like/RT/views (estilo print real)
 - Suporte a multiplas linhas com `\n` literal
 - Modo "Threads" da Meta (visual diferente do X)
+- Modo "LinkedIn" (mockup de post do LinkedIn em vez do X)
+- Pre-cropping automatico de avatar nao-quadrado (face detection)

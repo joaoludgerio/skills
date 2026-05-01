@@ -2,7 +2,7 @@
 """
 tweet-print: Gera imagem estilo "tweet print" para postar no Instagram.
 
-Uso:
+Uso single:
     python generate.py \\
         --text "Se **Matrix** fosse lancado hoje, o **Neo** se chamaria **Claudio**." \\
         --name "Eric Luciano" \\
@@ -12,7 +12,18 @@ Uso:
         --format 1080x1080 \\
         --output ./tweet.png
 
+Uso carrossel (gera N PNGs numerados):
+    python generate.py \\
+        --texts "Slide **1** texto" "Slide **2** outro texto" "Slide **3** terceiro" \\
+        --output-prefix ./carrossel
+
+    -> gera ./carrossel-01.png, ./carrossel-02.png, ./carrossel-03.png
+
 Marca palavras com **dois asteriscos** para deixar em negrito.
+
+Avatar default por usuario:
+    Defina a env var TWEET_PRINT_DEFAULT_AVATAR com o caminho da sua foto.
+    Cada colaborador seta uma vez e a skill usa por padrao.
 
 Dependencias:
     pip install playwright
@@ -20,6 +31,7 @@ Dependencias:
 """
 import argparse
 import base64
+import os
 import re
 import sys
 from pathlib import Path
@@ -58,15 +70,28 @@ def parse_bold(text: str) -> str:
 
 
 def avatar_data_uri(path: str) -> str:
-    """Le imagem do disco e devolve como data URI base64."""
-    p = Path(path)
+    """Le imagem do disco e devolve como data URI base64. Retorna None se nao achar."""
+    if not path:
+        return None
+    p = Path(path).expanduser()
     if not p.exists():
-        raise FileNotFoundError(f"Avatar nao encontrado: {path}")
+        print(f"AVISO: avatar nao encontrado em {path} — usando inicial estilizada como fallback.", file=sys.stderr)
+        return None
     data = p.read_bytes()
     ext = p.suffix.lower().strip(".")
     mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
     mime = mime_map.get(ext, "image/jpeg")
     return f"data:{mime};base64,{base64.b64encode(data).decode()}"
+
+
+def resolve_avatar(arg_avatar: str | None) -> str | None:
+    """Resolve qual avatar usar, na ordem: --avatar > TWEET_PRINT_DEFAULT_AVATAR > None."""
+    if arg_avatar:
+        return arg_avatar
+    env_avatar = os.environ.get("TWEET_PRINT_DEFAULT_AVATAR")
+    if env_avatar:
+        return env_avatar
+    return None
 
 
 def auto_font_size(text: str) -> int:
@@ -208,27 +233,40 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--text", required=True, help="Texto do tweet. Use **word** para negrito.")
+    text_group = parser.add_mutually_exclusive_group(required=True)
+    text_group.add_argument("--text", help="Texto do tweet (single). Use **word** para negrito.")
+    text_group.add_argument("--texts", nargs="+", help="Lista de textos para carrossel. Gera N PNGs numerados (use --output-prefix).")
     parser.add_argument("--name", default="Eric Luciano", help="Nome de exibicao")
     parser.add_argument("--handle", default="@ericluciano", help="Handle (com @)")
-    parser.add_argument("--avatar", help="Caminho do arquivo de avatar (jpg/png/webp). Se omitido, usa inicial estilizada.")
+    parser.add_argument("--avatar", help="Caminho do arquivo de avatar (jpg/png/webp). Se omitido, usa TWEET_PRINT_DEFAULT_AVATAR ou inicial estilizada.")
     parser.add_argument("--theme", default="light", choices=list(THEMES), help="Tema visual")
     parser.add_argument("--format", default="1080x1080", choices=list(FORMATS), help="Formato/dimensoes")
     parser.add_argument("--no-verified", action="store_true", help="Nao mostrar selo verificado azul")
     parser.add_argument("--font-size", type=int, help="Override do tamanho da fonte do tweet (px)")
-    parser.add_argument("--output", default="./tweet-print.png", help="Caminho do PNG de saida")
+    parser.add_argument("--output", default="./tweet-print.png", help="Caminho do PNG de saida (modo single)")
+    parser.add_argument("--output-prefix", default="./carrossel", help="Prefixo dos PNGs no modo carrossel (gera prefix-01.png, prefix-02.png, ...)")
     args = parser.parse_args()
 
     width, height = FORMATS[args.format]
     theme = THEMES[args.theme]
-    text_html = parse_bold(args.text)
-    avatar_uri = avatar_data_uri(args.avatar) if args.avatar else None
-    font_size = args.font_size or auto_font_size(args.text)
     badge_html = "" if args.no_verified else BADGE_SVG
+    avatar_uri = avatar_data_uri(resolve_avatar(args.avatar))
 
-    html = build_html(args, width, height, theme, text_html, avatar_uri, font_size, badge_html)
-    render(html, width, height, args.output)
-    print(f"OK: {args.output}")
+    texts = args.texts if args.texts else [args.text]
+    is_carousel = len(texts) > 1
+
+    for idx, text in enumerate(texts, start=1):
+        text_html = parse_bold(text)
+        font_size = args.font_size or auto_font_size(text)
+        html = build_html(args, width, height, theme, text_html, avatar_uri, font_size, badge_html)
+
+        if is_carousel:
+            output = f"{args.output_prefix}-{idx:02d}.png"
+        else:
+            output = args.output
+
+        render(html, width, height, output)
+        print(f"OK: {output}")
 
 
 if __name__ == "__main__":
