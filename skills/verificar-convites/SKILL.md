@@ -152,12 +152,31 @@ Separar em blocos:
 
 ---
 
+## FECHAR CICLO DE RESPOSTA (regra de comportamento)
+
+**Objetivo:** nenhum lead fica no vácuo. NÃO é dogma "Eric sempre manda a última msg literal" — é "ninguém pode ficar sem fechamento".
+
+Ao varrer respostas, pra cada conversa decidir se o ciclo está aberto ou fechado:
+
+| Situação | Ciclo | Ação sugerida ao Eric |
+|----------|-------|----------------------|
+| Lead mandou pergunta, recusa pela 1ª vez, confirmação, áudio explicando algo, dúvida real | **ABERTO** | Sugerir resposta substantiva pra Eric mandar |
+| Lead respondeu "ok", "valeu", "obrigado", "beleza" depois que Eric já respondeu | **FECHADO** | Reação 👍❤️🙏 OU silêncio. NÃO forçar mais texto |
+| Eric já agradeceu/anotou + lead já agradeceu | **FECHADO** | Nada |
+| Lead recusou, Eric ainda não respondeu | **ABERTO** | Sugerir "tranquilo, fica pra próxima, abraço" |
+| Lead confirmou, Eric ainda não respondeu | **ABERTO** | Sugerir "show, te vejo lá / equipe entra em contato" |
+
+**Regra de bolso:** se a próxima msg do Eric soaria forçada/redundante ("desliga você primeiro, não, desliga você"), NÃO mandar. Reação ou silêncio com ciclo fechado é melhor que texto vazio.
+
+**Se `react` falhar (erro Z-API):** cair pro fallback de texto curto equivalente ("Combinado!", "Anotado!", "Tranquilo, obrigado!"). NÃO deixar a thread sem fechamento se o lote inteiro recebeu fechamento.
+
 ## REGRAS IMPORTANTES
 
-1. **NUNCA responder automaticamente** ao convidado — apenas ler e classificar
+1. **NUNCA responder automaticamente** ao convidado — apenas ler, classificar e SUGERIR resposta pro Eric (Eric envia)
 2. **Em caso de dúvida na classificação**, marcar como `em_andamento` e pedir ao Eric
 3. **Respeitar tom do convidado** — se a pessoa está negociando data/detalhes, NÃO é recusa
 4. **Confirmação por botão sem mensagem**: se o sistema marcou `status_presenca = confirmado` automaticamente mas a pessoa não escreveu nada, reportar como "auto-confirmou (precisa validação)"
 5. **Paralelizar leituras** quando possível (múltiplos agents)
 6. **Não alterar status_presenca se já estava como `confirmado` via botão** sem reação do usuário — apenas reportar
 7. **Acentuação correta** em qualquer texto que for mostrado ao Eric
+8. **Consistência de fechamento dentro do lote** — se 9 de 10 leads do mesmo grupo (ex: recusados) receberam mensagem de fechamento, o 10º também recebe. Não criar exceção sem motivo claro
