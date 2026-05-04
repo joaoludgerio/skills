@@ -1,0 +1,14 @@
+{
+  "name": "skills",
+  "version": "1.0.0",
+  "description": "Skills profissionais da Expert Integrado: 12 skills cobrindo CRM Pipedrive, prospeccao, campanhas WhatsApp, eventos, conteudo e operacoes.",
+  "author": {
+    "name": "Eric Luciano Ferreira",
+    "email": "operacoes@expertintegrado.com.br",
+    "url": "https://expertintegrado.com.br"
+  },
+  "homepage": "https://github.com/expertintegrado/skills",
+  "repository": "https://github.com/expertintegrado/skills",
+  "license": "MIT",
+  "keywords": ["expert-integrado", "crm", "pipedrive", "whatsapp", "chatguru", "prospeccao", "eventos"]
+}
