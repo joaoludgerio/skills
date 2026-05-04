@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-agent-mcp",
-  "version": "2.7.0",
-  "description": "MCP server para WhatsApp Agent (Z-API + Supabase) — Expert Integrado",
+  "version": "2.8.0",
+  "description": "MCP server para WhatsApp Agent (Z-API + Supabase) — Expert Integrado. v2.8: Voice Guide layer (warning-only) com tools get_voice_guide, check_message, setup_voice_guide.",
   "type": "module",
   "main": "index.js",
   "scripts": {

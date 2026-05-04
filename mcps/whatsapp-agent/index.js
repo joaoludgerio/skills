@@ -2,6 +2,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 
@@ -31,6 +34,106 @@ const ZAPI_BASE = ZAPI_INSTANCE_ID && ZAPI_TOKEN
   : null;
 
 const SEND_MESSAGE_URL = `${SUPABASE_URL}/functions/v1/send-message`;
+
+// ─── VOICE GUIDE ─────────────────────────────────────────────────────────────
+// Carrega arquivo de voice guide do user (single-tenant per install).
+// Procura em ordem: VOICE_GUIDE_PATH env > ./voice-guide.md (raiz MCP) > ~/.claude/voice-guide.md
+// > OneDrive\Workspace\claude-sync\memory\voice-guide.md > eric-voice.md (legacy seed)
+//
+// Filosofia: warning, nunca bloqueio. send() executa normal mas avisa Claude se detectar
+// violacao das regras hard. Cabe a Claude reescrever ou prosseguir consciente.
+//
+// Multi-instalacao: cada user gera o proprio voice-guide.md a partir do template.
+
+const VOICE_GUIDE_CANDIDATES = [
+  process.env.VOICE_GUIDE_PATH,
+  path.join(process.cwd(), "voice-guide.md"),
+  path.join(os.homedir(), ".claude", "voice-guide.md"),
+  path.join(os.homedir(), "OneDrive", "Workspace", "claude-sync", "memory", "voice-guide.md"),
+  path.join(os.homedir(), "OneDrive", "Workspace", "claude-sync", "memory", "eric-voice.md"),
+].filter(Boolean);
+
+function findVoiceGuide() {
+  for (const candidate of VOICE_GUIDE_CANDIDATES) {
+    try {
+      if (fs.existsSync(candidate)) {
+        return { path: candidate, content: fs.readFileSync(candidate, "utf8") };
+      }
+    } catch { /* ignora e tenta proximo */ }
+  }
+  return null;
+}
+
+// Regras hard universais — fingerprints binarias de "nao-Eric" (e fingerprints de IA em geral)
+// Pode ser sobrescrito via voice-guide.md customizado no campo `regras_hard_regex` (futuro).
+const HARD_RULES = [
+  {
+    id: "tu-pronome",
+    pattern: /\b(tu|teu|tua|teus|tuas|ti)\b/iu,
+    severity: "high",
+    message: "Detectado uso de 'tu/teu/tua' — voice guide proibe em qualquer estrato. Eric usa 'vc'/'seu'.",
+  },
+  {
+    id: "em-dash",
+    pattern: /—/,
+    severity: "high",
+    message: "Detectado em-dash (—) — fingerprint de IA. Voice guide manda usar virgula, dois-pontos, parenteses ou '..'.",
+  },
+  {
+    id: "saudacao-generica",
+    // \b em JS regex nao trata acentos como word chars; usa boundary custom (inicio/whitespace antes, nao-letra ASCII depois)
+    pattern: /(?:^|[\s,!?;:.])(ol[áa]|prezad[oa]|cordialmente|atenciosamente|esp[ée]ro que esteja bem)(?=$|[\s,!?;:.])/iu,
+    severity: "high",
+    message: "Detectada saudacao generica/formal. Voice guide manda 'Fala [Nome], beleza?' ou direto no assunto.",
+  },
+  {
+    id: "hype",
+    pattern: /(?:^|[\s,!?;:.])(revolucion[áa]ri[oa]|transformador|disruptivo|game[- ]?changer|mindset|f[óo]rmula m[áa]gica)(?=$|[\s,!?;:.])/iu,
+    severity: "high",
+    message: "Detectado vocabulario de hype. Voice guide proibe — user posiciona com contencao.",
+  },
+  {
+    id: "urgencia-manufaturada",
+    pattern: /(?:^|[\s,!?;:.])([úu]ltima chance|s[óo] hoje|corre que|aproveita j[áa])(?=$|[\s,!?;:.])/iu,
+    severity: "high",
+    message: "Detectada urgencia manufaturada. Voice guide so aceita escassez REAL ('to fechando a lista').",
+  },
+  {
+    id: "softener-equipe",
+    pattern: /\b(quando puder, por favor|se for poss[íi]vel|quando der um tempinho|com todo respeito)\b/iu,
+    severity: "medium",
+    message: "Detectado softener. Em equipe Eric usa ordem direta ('tem q resolver X'). Em discordancia, frontalidade direta.",
+  },
+  {
+    id: "validacao-afetiva",
+    pattern: /\b(te entendo|imagino como (voc[êe]|vc) (est[áa]|t[áa])|faz sentido (sua|tua) preocupa[çc][ãa]o|fica tranquil[oa] (que|q) vamos)\b/iu,
+    severity: "high",
+    message: "Detectada validacao afetiva. Voice guide regra hard: frontalidade nao inclui validar emocao — devolve pergunta de plano.",
+  },
+  {
+    id: "rsrs",
+    pattern: /\brsrs\w*\b/iu,
+    severity: "medium",
+    message: "Detectado 'rsrs'. Voice guide aceita 'kkk' (risada) ou 'rs' solto fim-de-frase (atenuador), mas nao 'rsrs'.",
+  },
+];
+
+function checkVoiceViolations(content) {
+  if (!content || typeof content !== "string") return [];
+  const violations = [];
+  for (const rule of HARD_RULES) {
+    const match = content.match(rule.pattern);
+    if (match) {
+      violations.push({
+        id: rule.id,
+        severity: rule.severity,
+        message: rule.message,
+        match: match[0],
+      });
+    }
+  }
+  return violations;
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -851,7 +954,35 @@ FLUXO OBRIGATORIO (duas chamadas):
 
       const result = await res.json();
       if (!res.ok) return err(result?.error || `HTTP ${res.status}`);
-      return ok({ sent: true, to: resolved.chat_name, ...(resolved._new && { new_chat: true }), ...result });
+
+      // Voice guide check — WARNING only, nao bloqueia envio
+      let voiceWarning = null;
+      if (type === "text" && content) {
+        const violations = checkVoiceViolations(content);
+        if (violations.length > 0) {
+          const guide = findVoiceGuide();
+          voiceWarning = {
+            voice_guide_violations: violations.length,
+            violations: violations.map(v => `[${v.severity}] ${v.id} ("${v.match}"): ${v.message}`),
+            voice_guide_loaded: !!guide,
+            voice_guide_path: guide?.path,
+            note: "Mensagem foi enviada mesmo assim. Pra proxima, considere reescrever respeitando regras hard. Use get_voice_guide() pra ler o documento.",
+          };
+        } else if (findVoiceGuide()) {
+          voiceWarning = {
+            voice_guide_check: "passed",
+            note: "Mensagem compativel com voice guide.",
+          };
+        }
+      }
+
+      return ok({
+        sent: true,
+        to: resolved.chat_name,
+        ...(resolved._new && { new_chat: true }),
+        ...result,
+        ...(voiceWarning && { voice: voiceWarning }),
+      });
     } catch (e) {
       return err(e.message);
     }
@@ -1392,6 +1523,132 @@ const ZAPI_SEND_ACTIONS = new Set([
   "send-text",
   "send-message",
 ]);
+
+// ─── VOICE GUIDE TOOLS ───────────────────────────────────────────────────────
+
+server.tool(
+  "get_voice_guide",
+  `Retorna o voice guide do user (markdown completo).
+
+O voice guide descreve como o user se comunica — lexico, sintaxe, modulacao por audiencia,
+padroes retoricos, anti-padroes — pra que o agente possa simular a voz dele com fidelidade.
+
+Use SEMPRE antes de redigir mensagem em nome do user, simular voz dele, ou avaliar
+se um texto soa como ele.
+
+Procura nos paths (em ordem): VOICE_GUIDE_PATH env > ./voice-guide.md > ~/.claude/voice-guide.md
+> OneDrive\\Workspace\\claude-sync\\memory\\voice-guide.md > eric-voice.md (legacy seed).
+
+Se nao encontrar, retorna instrucoes pra setup. Cada user tem o proprio voice guide
+em sua maquina (single-tenant per install).`,
+  {},
+  async () => {
+    const guide = findVoiceGuide();
+    if (!guide) {
+      return {
+        content: [{
+          type: "text",
+          text: [
+            "VOICE GUIDE NAO ENCONTRADO.",
+            "",
+            "Pra ativar a checagem de voz nas mensagens, crie um arquivo `voice-guide.md` em UM destes locais:",
+            ...VOICE_GUIDE_CANDIDATES.map(p => `  - ${p}`),
+            "",
+            "Ou defina a env var VOICE_GUIDE_PATH apontando pra qualquer caminho.",
+            "",
+            "Template inicial: copie `voice-guide-template.md` da pasta deste MCP e personalize.",
+            "Pra gerar empiricamente a partir do seu historico de WhatsApp: rode o pipeline em scripts/voice-pipeline/ (ver README).",
+          ].join("\n"),
+        }],
+        isError: false, // nao e erro, so estado de setup pendente
+      };
+    }
+    return {
+      content: [{
+        type: "text",
+        text: [
+          `# Voice Guide carregado de: ${guide.path}`,
+          "",
+          guide.content,
+        ].join("\n"),
+      }],
+    };
+  }
+);
+
+server.tool(
+  "check_message",
+  `Verifica se um texto viola alguma regra hard do voice guide do user.
+
+Roda checagem regex contra padroes hard (pronomes, em-dash, hype, saudacoes proibidas,
+validacao afetiva, etc) e retorna lista de violacoes detectadas com severidade e sugestao.
+
+Use ANTES de chamar send() pra revisar/reescrever se houver violacoes.
+A tool send() ja roda esta checagem internamente — esta tool e pra checar drafts
+sem enviar.
+
+Filosofia: warning, nao bloqueio. send() executa mesmo com violacoes mas inclui aviso.
+Cabe a Claude decidir reescrever ou prosseguir consciente.`,
+  {
+    content: z.string().describe("Texto a verificar"),
+  },
+  async ({ content }) => {
+    const violations = checkVoiceViolations(content);
+    if (violations.length === 0) {
+      return ok({
+        ok: true,
+        violations_count: 0,
+        message: "Nenhuma violacao hard detectada. Texto compativel com voice guide.",
+      });
+    }
+    const guide = findVoiceGuide();
+    return ok({
+      ok: false,
+      violations_count: violations.length,
+      violations,
+      voice_guide_loaded: !!guide,
+      voice_guide_path: guide?.path,
+      hint: "Use get_voice_guide() pra ler o documento completo e reescrever respeitando as regras hard.",
+    });
+  }
+);
+
+server.tool(
+  "setup_voice_guide",
+  `Mostra status atual do voice guide e instrucoes pra setup.
+
+Use quando o user perguntar "como ativo a checagem de voz", "tem voice guide configurado?",
+ou quando get_voice_guide() retornar setup pendente.`,
+  {},
+  async () => {
+    const guide = findVoiceGuide();
+    const lines = ["=== Voice Guide Setup ==="];
+    if (guide) {
+      lines.push(`Status: ATIVO`);
+      lines.push(`Path: ${guide.path}`);
+      lines.push(`Tamanho: ${guide.content.length} chars / ${guide.content.split("\n").length} linhas`);
+      lines.push("");
+      lines.push("Cada send() vai rodar checagem regex contra as regras hard e incluir warning no retorno se detectar violacao.");
+      lines.push("Pra validar um draft sem enviar, use check_message(content).");
+    } else {
+      lines.push(`Status: NAO CONFIGURADO`);
+      lines.push("");
+      lines.push("Paths procurados (em ordem):");
+      VOICE_GUIDE_CANDIDATES.forEach(p => lines.push(`  - ${p}`));
+      lines.push("");
+      lines.push("Pra ativar:");
+      lines.push("  1. Crie arquivo voice-guide.md em qualquer um dos paths acima");
+      lines.push("  2. Ou defina VOICE_GUIDE_PATH no env apontando pro arquivo");
+      lines.push("  3. Reinicie o MCP (Claude Code: /mcp restart whatsapp-agent)");
+      lines.push("");
+      lines.push("Template inicial disponivel em voice-guide-template.md na pasta do MCP.");
+    }
+    lines.push("");
+    lines.push("Regras hard ativas (regex bloqueio nivel WARNING — send executa mesmo com violacao):");
+    HARD_RULES.forEach(r => lines.push(`  - [${r.severity}] ${r.id}: ${r.message.split(".")[0]}`));
+    return ok({ status: guide ? "active" : "not_configured", info: lines.join("\n") });
+  }
+);
 
 // ─── 8. zapi_action ──────────────────────────────────────────────────────────
 server.tool(
