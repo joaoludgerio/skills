@@ -159,6 +159,31 @@ function err(msg) {
   return { content: [{ type: "text", text: `ERRO: ${msg}` }], isError: true };
 }
 
+// Converte ISO UTC pra string legivel em horario de Brasilia (BRT, UTC-3).
+// Ex: "2026-05-06T21:38:26+00:00" -> "2026-05-06 18:38:26 BRT"
+// Mantem campo original message_ts pra compatibilidade; adiciona _brt em paralelo.
+function toBRT(iso) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    const brt = new Date(d.getTime() - 3 * 60 * 60 * 1000);
+    const pad = n => String(n).padStart(2, "0");
+    return `${brt.getUTCFullYear()}-${pad(brt.getUTCMonth() + 1)}-${pad(brt.getUTCDate())} ${pad(brt.getUTCHours())}:${pad(brt.getUTCMinutes())}:${pad(brt.getUTCSeconds())} BRT`;
+  } catch {
+    return null;
+  }
+}
+
+// Anexa message_ts_brt e created_at_brt em cada mensagem (nao remove os campos UTC originais).
+function withBRT(messages) {
+  return (messages || []).map(m => ({
+    ...m,
+    ...(m.message_ts ? { message_ts_brt: toBRT(m.message_ts) } : {}),
+    ...(m.created_at ? { created_at_brt: toBRT(m.created_at) } : {}),
+  }));
+}
+
 // \u2500\u2500\u2500 SCORING CONSTANTS (calibradas contra DB real, ver test-resolve.js) \u2500\u2500\u2500\u2500\u2500\u2500
 // Tier de match no nome \u2014 gap de >= 15 entre top e runner-up significa "vence claramente".
 const SCORE_EXACT       = 100;  // chat_name === input apos normalize
@@ -339,6 +364,40 @@ function applyChatBoost(score, chat) {
  *
  * Multi-layer fail open: se branch numerico nao encontra nada, ainda tenta nome.
  */
+/**
+ * Dado um chat_id resolvido, retorna a lista de chat_ids equivalentes via lid_mapping.
+ * Cobre o gap onde mensagens enviadas por linked device chegam com @lid no webhook
+ * apesar do chat principal ser numerico (ou vice-versa). Sempre inclui o proprio chat_id.
+ *
+ * Casos:
+ *  - chat_id numerico -> retorna [chat_id, ...lids que mapeiam pro phone]
+ *  - chat_id @lid     -> retorna [chat_id, phone] (se houver mapping)
+ *  - grupo / sem map  -> retorna [chat_id]
+ */
+async function expandChatIdsViaLidMapping(chat_id) {
+  if (!chat_id) return [];
+  const ids = new Set([chat_id]);
+  try {
+    if (String(chat_id).endsWith("@lid")) {
+      const { data } = await supabase
+        .from("lid_mapping")
+        .select("phone")
+        .eq("lid", chat_id)
+        .limit(1);
+      if (data?.[0]?.phone) ids.add(data[0].phone);
+    } else if (/^\d+$/.test(String(chat_id))) {
+      const { data } = await supabase
+        .from("lid_mapping")
+        .select("lid")
+        .eq("phone", chat_id);
+      if (data?.length) for (const r of data) ids.add(r.lid);
+    }
+  } catch {
+    // fail open: se lid_mapping nao existir ou der erro, segue so com chat_id original
+  }
+  return Array.from(ids);
+}
+
 async function resolveChat(to) {
   if (!to || !String(to).trim()) return { error: "Input vazio" };
   to = String(to).trim();
@@ -735,8 +794,11 @@ Mensagens de audio incluem campo transcription transcrito automaticamente.`,
           is_group: c.is_group,
           categories: categoriesByChat[c.chat_id] || [],
           last_message_at: c.last_message_at,
+          ...(c.last_message_at && { last_message_at_brt: toBRT(c.last_message_at) }),
           last_received_at: c.last_received_at,
+          ...(c.last_received_at && { last_received_at_brt: toBRT(c.last_received_at) }),
           last_sent_at: c.last_sent_at,
+          ...(c.last_sent_at && { last_sent_at_brt: toBRT(c.last_sent_at) }),
           waiting_on,
           last_message: msg
             ? {
@@ -786,20 +848,14 @@ Mensagens de audio incluem campo transcription com o conteudo transcrito automat
         });
       }
 
-      // Coleta chat_ids equivalentes via lid_mapping pra cobrir @lid orfaos
-      // que escaparam do merge (issue #1). Quando resolved.chat_id e numerico,
-      // une mensagens dos LIDs mapeados pra esse phone na mesma thread.
-      const chatIds = [resolved.chat_id];
-      if (/^\d+$/.test(String(resolved.chat_id))) {
-        const { data: lids } = await supabase
-          .from("lid_mapping").select("lid").eq("phone", resolved.chat_id);
-        if (lids?.length) chatIds.push(...lids.map(r => r.lid));
-      }
+      // Expande chat_id via lid_mapping (cobre msgs que chegaram como @lid antes do
+      // resolver atual capturar). Mantem chat_id principal pra exibir, mas busca em todos.
+      const chatIdSet = await expandChatIdsViaLidMapping(resolved.chat_id);
 
       let q = supabase
         .from("v_messages_with_sender")
         .select("id,message_type,content,direction,from_me,sender_contact_name,sender_phone,message_ts,created_at")
-        .in("chat_id", chatIds)
+        .in("chat_id", chatIdSet)
         .order("message_ts", { ascending: false, nullsFirst: false })
         .limit(limit);
 
@@ -823,7 +879,7 @@ Mensagens de audio incluem campo transcription com o conteudo transcrito automat
         categories: catRow?.category_slugs || [],
         category_labels: catRow?.category_labels || [],
         ...(catRow?.linked_pipedrive_person_id && { linked_pipedrive_person_id: catRow.linked_pipedrive_person_id }),
-        messages: enriched.reverse(),
+        messages: withBRT(enriched.reverse()),
         count: enriched.length,
       });
     } catch (e) {
@@ -1104,7 +1160,7 @@ Mensagens de audio nos resultados incluem campo transcription automaticamente.`,
         if (error) return err(error.message);
 
         const enriched = await enrichWithTranscriptions(data || []);
-        result.messages = enriched;
+        result.messages = withBRT(enriched);
         result.message_count = enriched.length;
       }
 
