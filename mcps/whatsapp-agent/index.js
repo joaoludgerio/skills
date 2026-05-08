@@ -714,7 +714,7 @@ Mensagens de audio incluem campo transcription transcrito automaticamente.`,
         .from(useCategoryView ? "v_chats_with_categories" : "v_chats_with_contact")
         .select(useCategoryView
           ? "chat_id,chat_name,is_group,last_message_at,last_received_at,last_sent_at,category_slugs"
-          : "chat_id,chat_name,contact_name,is_group,last_message_at,last_received_at,last_sent_at")
+          : "chat_id,chat_name,contact_name,is_group,last_message_at,last_received_at,last_sent_at,observations")
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("chat_id", { ascending: true })
         .limit(useCategoryView ? Math.max(limit * 5, 100) : limit); // pega mais quando filtra por categoria
@@ -792,6 +792,7 @@ Mensagens de audio incluem campo transcription transcrito automaticamente.`,
           chat_id: c.chat_id,
           name: enriched.contact_name || c.contact_name || c.chat_name,
           is_group: c.is_group,
+          ...(c.observations && { observations: c.observations }),
           categories: categoriesByChat[c.chat_id] || [],
           last_message_at: c.last_message_at,
           ...(c.last_message_at && { last_message_at_brt: toBRT(c.last_message_at) }),
@@ -866,16 +867,23 @@ Mensagens de audio incluem campo transcription com o conteudo transcrito automat
 
       const enriched = await enrichWithTranscriptions(data || []);
 
-      // Categorias atribuidas a este chat (uteis pro contexto do agente)
-      const { data: catRow } = await supabase
-        .from("v_chats_with_categories")
-        .select("category_slugs,category_labels,linked_pipedrive_person_id")
-        .eq("chat_id", resolved.chat_id)
-        .single();
+      // Categorias + contexto do contato (observations, links)
+      const [catResult, chatResult] = await Promise.all([
+        supabase.from("v_chats_with_categories")
+          .select("category_slugs,category_labels,linked_pipedrive_person_id")
+          .eq("chat_id", resolved.chat_id).single(),
+        supabase.from("chats")
+          .select("observations,links")
+          .eq("chat_id", resolved.chat_id).single(),
+      ]);
+      const catRow = catResult.data;
+      const chatMeta = chatResult.data;
 
       return ok({
         chat_id: resolved.chat_id,
         chat_name: resolved.chat_name,
+        ...(chatMeta?.observations && { observations: chatMeta.observations }),
+        ...(chatMeta?.links?.length && { links: chatMeta.links }),
         categories: catRow?.category_slugs || [],
         category_labels: catRow?.category_labels || [],
         ...(catRow?.linked_pipedrive_person_id && { linked_pipedrive_person_id: catRow.linked_pipedrive_person_id }),
@@ -1794,7 +1802,46 @@ Para "messageId": usar provider_msg_id da tabela messages (nao o UUID interno).`
 // ─── START ───────────────────────────────────────────────────────────────────
 
 
-// ─── 9. edit_message ─────────────────────────────────────────────────────────
+// ─── 9. annotate_chat ────────────────────────────────────────────────────────
+server.tool(
+  "annotate_chat",
+  `Salva observacoes e/ou links sobre um contato ou grupo.
+Use para: "anota que o Marcos so responde audio", "salva o LinkedIn da Maria", "esse lead nao lê texto".
+observations: texto livre com contexto do contato (exibido no read e inbox automaticamente).
+links: array de {label, url} com links relevantes (LinkedIn, proposta, etc).
+Passe so o campo que quer atualizar — o outro permanece inalterado.`,
+  {
+    chat: z.string().describe("Nome, telefone ou chat_id do contato"),
+    observations: z.string().optional().describe("Texto livre com contexto do contato. Ex: 'So responde audio. Cliente desde 2023.'"),
+    links: z.array(z.object({
+      label: z.string().describe("Rotulo do link. Ex: LinkedIn, Proposta, Site"),
+      url: z.string().url().describe("URL completa"),
+    })).optional().describe("Links relevantes do contato"),
+  },
+  async ({ chat, observations, links }) => {
+    if (!observations && !links) return err("Passe ao menos observations ou links.");
+    try {
+      const resolved = await resolveChat(chat);
+      if (resolved.error) return err(resolved.error);
+      if (resolved.candidates) return ok({
+        ambiguous: true,
+        message: `Nome "${chat}" retornou multiplos resultados. Use o chat_id correto.`,
+        candidates: resolved.candidates.map(c => ({ chat_id: c.chat_id, name: c.contact_name || c.chat_name })),
+      });
+
+      const update = {};
+      if (observations !== undefined) update.observations = observations;
+      if (links !== undefined) update.links = links;
+
+      const { error } = await supabase.from("chats").update(update).eq("chat_id", resolved.chat_id);
+      if (error) return err(error.message);
+
+      return ok({ annotated: true, chat_id: resolved.chat_id, chat_name: resolved.chat_name, ...update });
+    } catch (e) { return err(e.message); }
+  }
+);
+
+// ─── 10. edit_message ─────────────────────────────────────────────────────────
 server.tool(
   "edit_message",
   `Edita o texto de uma mensagem enviada por voce.
