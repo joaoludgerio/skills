@@ -6,3 +6,4 @@ session.json
 scan-results.json
 *.log
 mcps/whatsapp/
+mcps/memory-mcp/
