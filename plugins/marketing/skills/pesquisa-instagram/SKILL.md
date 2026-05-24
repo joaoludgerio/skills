@@ -42,7 +42,7 @@ set -a; source /home/node/.claude/.env; set +a
 ## Como invocar
 
 ```bash
-node /workspace/expert-mcps/skills/pesquisa-instagram/scripts/run.mjs <username>
+node /workspace/expert-mcps/plugins/marketing/skills/pesquisa-instagram/scripts/run.mjs <username>
 ```
 
 Exemplos:

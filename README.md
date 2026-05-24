@@ -1,8 +1,10 @@
-# Expert MCPs
+# Expert MCPs + Skills
 
-Ferramentas de IA (MCPs) da Expert Integrado para uso com Claude Code.
+Ferramentas de IA da Expert Integrado para uso com Claude Code: MCPs (servidores que conectam Claude a sistemas) e Skills (instrucoes que orquestram tarefas profissionais por departamento).
 
-## Ferramentas incluidas
+> Reorganizado em 24/05/2026 (v2.0.0): skills agora em 5 plugins por departamento via marketplace.
+
+## MCPs incluidos
 
 | Ferramenta | Descricao |
 |------------|-----------|
@@ -12,6 +14,22 @@ Ferramentas de IA (MCPs) da Expert Integrado para uso com Claude Code.
 | **Outlook** | E-mails, calendario e contatos via Microsoft 365 |
 | **ChatGuru** | Consulta de conversas do WhatsApp empresarial |
 | **WhatsApp** | WhatsApp pessoal via extensao do navegador |
+
+## Skills (5 plugins por departamento)
+
+| Plugin | Skills | Comando |
+|--------|--------|---------|
+| **comercial** | prospecta-lead, reabordagem, pipe-review, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao, estou-devendo | `/plugin install comercial@expertintegrado` |
+| **eventos** | convidar-evento, verificar-convites | `/plugin install eventos@expertintegrado` |
+| **marketing** | tweet-print, pesquisa-instagram | `/plugin install marketing@expertintegrado` |
+| **operacoes** | email-cleaner, onboard | `/plugin install operacoes@expertintegrado` |
+| **setup** | telegram-setup | `/plugin install setup@expertintegrado` |
+
+> Maquinas/perfis diferentes instalam pacotes diferentes. PC do Eric instala todos. VPS comercial so `comercial + operacoes`. Notebook enxuto so `comercial`.
+
+## Skills removidas em v2.0.0
+
+- `pipedrive-crm` virou **regras carregadas via CLAUDE.md** (sem trigger). Documentacao completa em `CLAUDE.md` deste repo. Resumo tambem em `~/.claude/CLAUDE.md` (global).
 
 ## Pre-requisitos
 
@@ -60,17 +78,42 @@ Quando houver atualizacao, abra o Claude Code e peca:
 
 ```
 expert-mcps/
-  mcps/
+  .claude-plugin/
+    marketplace.json    — cataloga os 5 plugins
+  CLAUDE.md             — regras canonicas (incluindo Pipedrive)
+  mcps/                 — servidores MCP
     pipedrive/    — Pipedrive CRM
     clickup/      — ClickUp
     zoom/         — Zoom Team Chat
     outlook/      — Microsoft 365 (Outlook)
     chatguru/     — ChatGuru (modo readonly)
     whatsapp/     — WhatsApp Web
-  setup.js        — Setup interativo
+  plugins/              — skills por departamento (v2.0.0)
+    comercial/
+      .claude-plugin/plugin.json
+      skills/{prospecta-lead, reabordagem, pipe-review, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao, estou-devendo}/
+    eventos/
+      skills/{convidar-evento, verificar-convites}/
+    marketing/
+      skills/{tweet-print, pesquisa-instagram}/
+    operacoes/
+      skills/{email-cleaner, onboard}/
+    setup/
+      skills/{telegram-setup}/
+  setup.js              — Setup interativo de MCPs
   package.json
   README.md
 ```
+
+## Criterio de graduacao (Sandbox → Production)
+
+Skills novas nascem em `ericlucianoferreira/skills` (incubator pessoal do Eric). Pra entrar neste repo precisam atender os 5:
+
+1. Uso real >= 5x em producao (nao demo)
+2. Sem bug critico nos ultimos 14 dias
+3. Documentacao completa (SKILL.md com triggers, exemplos, edge cases)
+4. Voice Guide compliance (skills que mandam WhatsApp)
+5. Outra maquina sua rodou (ou outro membro do time validou)
 
 ## Problemas?
 

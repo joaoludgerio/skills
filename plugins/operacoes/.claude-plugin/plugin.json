@@ -1,0 +1,14 @@
+{
+  "name": "operacoes",
+  "version": "2.0.0",
+  "description": "Skills de operacoes internas Expert Integrado: limpeza de inbox, onboarding de colaboradores.",
+  "author": {
+    "name": "Eric Luciano Ferreira",
+    "email": "operacoes@expertintegrado.com.br",
+    "url": "https://expertintegrado.com.br"
+  },
+  "homepage": "https://github.com/expertintegrado/skills",
+  "repository": "https://github.com/expertintegrado/skills",
+  "license": "MIT",
+  "keywords": ["expert-integrado", "operacoes", "email", "onboarding"]
+}

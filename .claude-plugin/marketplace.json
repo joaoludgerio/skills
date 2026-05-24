@@ -6,17 +6,49 @@
     "url": "https://expertintegrado.com.br"
   },
   "metadata": {
-    "description": "Skills profissionais da Expert Integrado para Claude Code",
-    "version": "1.0.0"
+    "description": "Marketplace de skills profissionais da Expert Integrado para Claude Code, organizadas por departamento.",
+    "version": "2.0.0"
   },
   "plugins": [
     {
-      "name": "skills",
-      "source": "./",
-      "description": "Pacote completo de skills da Expert Integrado: comerciais (prospecta-lead, reabordagem, pipedrive-crm, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao), eventos (convidar-evento, verificar-convites), operacoes (email-cleaner, estou-devendo, telegram-setup, onboard), conteudo (tweet-print) e pesquisa (pesquisa-instagram)",
-      "version": "1.2.1",
+      "name": "comercial",
+      "source": "./plugins/comercial",
+      "description": "Skills comerciais: prospecta-lead, reabordagem, pipe-review, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao, estou-devendo.",
+      "version": "2.0.0",
       "category": "productivity",
-      "tags": ["expert-integrado", "comercial", "crm", "whatsapp", "eventos", "produtividade", "instagram"]
+      "tags": ["comercial", "crm", "pipedrive", "whatsapp", "prospeccao"]
+    },
+    {
+      "name": "eventos",
+      "source": "./plugins/eventos",
+      "description": "Skills de gestao de eventos: convidar-evento, verificar-convites.",
+      "version": "2.0.0",
+      "category": "productivity",
+      "tags": ["eventos", "convites", "whatsapp"]
+    },
+    {
+      "name": "marketing",
+      "source": "./plugins/marketing",
+      "description": "Skills de marketing e conteudo: tweet-print, pesquisa-instagram.",
+      "version": "2.0.0",
+      "category": "productivity",
+      "tags": ["marketing", "conteudo", "instagram"]
+    },
+    {
+      "name": "operacoes",
+      "source": "./plugins/operacoes",
+      "description": "Skills de operacoes internas: email-cleaner, onboard.",
+      "version": "2.0.0",
+      "category": "productivity",
+      "tags": ["operacoes", "email", "onboarding"]
+    },
+    {
+      "name": "setup",
+      "source": "./plugins/setup",
+      "description": "Skills de setup tecnico: telegram-setup.",
+      "version": "2.0.0",
+      "category": "productivity",
+      "tags": ["setup", "telegram"]
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "name": "comercial",
+  "version": "2.0.0",
+  "description": "Skills comerciais Expert Integrado: prospeccao em massa, reabordagem, campanhas WhatsApp, follow-up de leads e pipe review diario.",
+  "author": {
+    "name": "Eric Luciano Ferreira",
+    "email": "operacoes@expertintegrado.com.br",
+    "url": "https://expertintegrado.com.br"
+  },
+  "homepage": "https://github.com/expertintegrado/skills",
+  "repository": "https://github.com/expertintegrado/skills",
+  "license": "MIT",
+  "keywords": ["expert-integrado", "comercial", "crm", "pipedrive", "whatsapp", "prospeccao"]
+}
