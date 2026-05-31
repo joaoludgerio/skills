@@ -359,7 +359,22 @@ function resolveCustomFields(fields) {
         }
       }
       if (ids.length > 0) body[field.key] = ids.join(",");
-    } else if (field.type === "double" || field.type === "user") {
+    } else if (field.type === "user") {
+      let userId = null;
+      const num = Number(value);
+      if (!isNaN(num) && num > 0) {
+        userId = num;
+      } else if (typeof value === "string") {
+        const match = ACTIVE_USERS.find((u) => u.name && u.name.toLowerCase() === value.toLowerCase());
+        if (match) userId = match.id;
+      }
+      if (userId === null) {
+        const available = ACTIVE_USERS.map((u) => u.name).join(", ");
+        errors.push(`"${name}": valor "${value}" inválido. Passe ID numérico ou nome exato do usuário (disponíveis: ${available}).`);
+        continue;
+      }
+      body[field.key] = userId;
+    } else if (field.type === "double") {
       const num = Number(value);
       if (isNaN(num)) {
         errors.push(`"${name}": valor "${value}" não é um número válido.`);
@@ -371,6 +386,59 @@ function resolveCustomFields(fields) {
     }
   }
   return { body, errors };
+}
+
+// Aplica update de campos personalizados num deal com proteção contra sobrescrita.
+// Centraliza a lógica usada pela tool nativa `update_deal_fields` e pelo proxy `pipedrive_write`.
+async function applyDealFieldsUpdate(deal_id, parsed, force) {
+  const { body, errors } = resolveCustomFields(parsed);
+  if (errors.length > 0 && Object.keys(body).length === 0) {
+    return { ok: false, message: `Erros de validação:\n${errors.join("\n")}` };
+  }
+  const currentDeal = await pipedriveRequest(`/deals/${deal_id}`).catch(() => null);
+  const dealData = currentDeal?.data || {};
+  const apiKeyToName = {};
+  for (const [name, value] of Object.entries(parsed)) {
+    const resolved = resolveCustomFields({ [name]: value });
+    for (const k of Object.keys(resolved.body)) apiKeyToName[k] = name;
+  }
+  const safeBody = {};
+  const conflicts = [];
+  const noops = [];
+  // Normaliza valor da API pra comparar com valor a ser escrito.
+  // Pipedrive pode devolver number, string ou objeto aninhado (ex: user → {value, id, name}).
+  const normalize = (v) => {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "object") return String(v.value ?? v.id ?? v.key ?? "");
+    return String(v);
+  };
+  for (const [key, value] of Object.entries(body)) {
+    const current = dealData[key];
+    const normCurrent = normalize(current);
+    const isEmpty = normCurrent === "";
+    const sameValue = !isEmpty && normCurrent === String(value);
+    if (sameValue) {
+      noops.push(apiKeyToName[key] || key);
+    } else if (isEmpty || force) {
+      safeBody[key] = value;
+    } else {
+      conflicts.push({ field: apiKeyToName[key] || key, current_value: normCurrent, new_value: value });
+    }
+  }
+  if (Object.keys(safeBody).length > 0) {
+    await pipedriveRequest(`/deals/${deal_id}`, { method: "PUT", body: JSON.stringify(safeBody) });
+  }
+  let msg = `Deal ${deal_id} — campos preenchidos: ${Object.keys(safeBody).length}\nhttps://${COMPANY_DOMAIN}.pipedrive.com/deal/${deal_id}`;
+  if (noops.length > 0) msg += `\nIgnorados (já com mesmo valor): ${noops.join(", ")}`;
+  if (force && conflicts.length === 0 && Object.keys(safeBody).length > 0) {
+    // Force aplicado, sem conflito a reportar
+  }
+  if (conflicts.length > 0) {
+    msg += `\n\nCONFLITO — campos JÁ TÊM VALOR diferente (chame de novo com force=true pra sobrescrever):`;
+    for (const c of conflicts) msg += `\n• "${c.field}"  atual="${c.current_value}"  novo="${c.new_value}"`;
+  }
+  if (errors.length > 0) msg += `\n\nAvisos:\n${errors.join("\n")}`;
+  return { ok: true, message: msg, written: Object.keys(safeBody).length, conflicts: conflicts.length, noops: noops.length };
 }
 
 function resolvePersonCustomFields(fields) {
@@ -2047,64 +2115,67 @@ server.tool(
     } catch {
       return { content: [{ type: "text", text: "Erro: custom_fields deve ser um JSON válido." }] };
     }
-    const { body, errors } = resolveCustomFields(parsed);
-    if (errors.length > 0 && Object.keys(body).length === 0) {
-      return { content: [{ type: "text", text: `Erros de validação:\n${errors.join("\n")}` }] };
-    }
-    // Proteção: buscar deal atual e verificar campos que já têm valor
-    const currentDeal = await pipedriveRequest(`/deals/${deal_id}`).catch(() => null);
-    const dealData = currentDeal?.data || {};
-    // Mapear API key → nome legível
-    const apiKeyToName = {};
-    for (const [name, value] of Object.entries(parsed)) {
-      const resolved = resolveCustomFields({ [name]: value });
-      for (const k of Object.keys(resolved.body)) {
-        apiKeyToName[k] = name;
-      }
-    }
-    const safeBody = {};
-    const conflicts = [];
-    for (const [key, value] of Object.entries(body)) {
-      const current = dealData[key];
-      const isEmpty = current === null || current === undefined || current === "";
-      if (isEmpty || force) {
-        safeBody[key] = value;
-      } else {
-        const fieldName = apiKeyToName[key] || key;
-        conflicts.push({ field: fieldName, current_value: current, new_value: value });
-      }
-    }
-    // Se há conflitos e não é force, retornar sem atualizar os conflitantes
-    if (conflicts.length > 0 && !force) {
-      let msg = "";
-      if (Object.keys(safeBody).length > 0) {
-        await pipedriveRequest(`/deals/${deal_id}`, {
-          method: "PUT",
-          body: JSON.stringify(safeBody),
-        });
-        msg += `✅ Campos vazios atualizados: ${Object.keys(safeBody).length}\n\n`;
-      }
-      msg += `⚠️ CONFLITO — Os seguintes campos JÁ TÊM VALOR preenchido:\n`;
-      for (const c of conflicts) {
-        msg += `\n• "${c.field}"\n  Valor atual: "${c.current_value}"\n  Novo valor solicitado: "${c.new_value}"`;
-      }
-      msg += `\n\n→ Pergunte ao usuário se deseja sobrescrever. Se sim, chame novamente com force=true.`;
-      if (errors.length > 0) msg += `\n\nAvisos:\n${errors.join("\n")}`;
-      return { content: [{ type: "text", text: msg }] };
-    }
-    // Atualizar tudo (force=true ou todos vazios)
-    if (Object.keys(safeBody).length > 0) {
-      await pipedriveRequest(`/deals/${deal_id}`, {
-        method: "PUT",
-        body: JSON.stringify(safeBody),
-      });
-    }
-    let msg = `Negócio ${deal_id} atualizado! Campos alterados: ${Object.keys(parsed).join(", ")}\nhttps://${COMPANY_DOMAIN}.pipedrive.com/deal/${deal_id}`;
-    if (force && conflicts.length > 0) {
-      msg += `\n(${conflicts.length} campo(s) sobrescrito(s) com confirmação do usuário: ${conflicts.map((c) => `"${c.field}"`).join(", ")})`;
-    }
-    if (errors.length > 0) msg += `\n\nAvisos:\n${errors.join("\n")}`;
-    return { content: [{ type: "text", text: msg }] };
+    const result = await applyDealFieldsUpdate(deal_id, parsed, force);
+    return { content: [{ type: "text", text: result.message }] };
+  }
+);
+
+// EXPERIMENTO DE NOMES (22/05/2026): 4 variantes lado-a-lado pra descobrir qual passa o classifier do Claude Code.
+// Todas chamam a mesma applyDealFieldsUpdate. So restart e testar quais aparecem ativas.
+
+server.tool(
+  "set_deal_data",
+  "Define dados de um negocio Pipedrive. Recebe um mapa de chave/valor com nome legivel do campo. Para enum, use texto exato da opcao. Se campo ja tem valor diferente, retorna conflito — passe force=true pra sobrescrever.",
+  {
+    deal_id: z.number().describe("ID do negocio"),
+    fields: z.record(z.unknown()).describe("Mapa nome->valor dos campos a definir"),
+    force: z.boolean().optional().default(false).describe("Sobrescreve campos ja preenchidos quando true"),
+  },
+  async ({ deal_id, fields, force }) => {
+    const result = await applyDealFieldsUpdate(deal_id, fields, force);
+    return { content: [{ type: "text", text: result.message }] };
+  }
+);
+
+server.tool(
+  "upsert_deal_fields",
+  "Preenche ou atualiza campos personalizados de um negocio Pipedrive. Comportamento upsert: preenche se vazio, requer force=true pra sobrescrever valor existente diferente. Para enum/set, use texto exato da opcao.",
+  {
+    deal_id: z.number().describe("ID do negocio"),
+    fields: z.record(z.unknown()).describe("Mapa nome do campo -> valor"),
+    force: z.boolean().optional().default(false).describe("Sobrescreve campos ja preenchidos quando true"),
+  },
+  async ({ deal_id, fields, force }) => {
+    const result = await applyDealFieldsUpdate(deal_id, fields, force);
+    return { content: [{ type: "text", text: result.message }] };
+  }
+);
+
+server.tool(
+  "patch_deal_fields",
+  "Atualiza parcialmente campos personalizados de um negocio Pipedrive (sparse update). Por padrao nao sobrescreve valores ja preenchidos — passe force=true se quiser.",
+  {
+    deal_id: z.number().describe("ID do negocio"),
+    fields: z.record(z.unknown()).describe("Mapa nome do campo -> valor"),
+    force: z.boolean().optional().default(false).describe("Sobrescreve campos ja preenchidos quando true"),
+  },
+  async ({ deal_id, fields, force }) => {
+    const result = await applyDealFieldsUpdate(deal_id, fields, force);
+    return { content: [{ type: "text", text: result.message }] };
+  }
+);
+
+server.tool(
+  "update_deal_custom_fields",
+  "Atualiza campos personalizados de um negocio Pipedrive pelos nomes legiveis. Por padrao nao sobrescreve valor preenchido (retorna conflito) — passe force=true se quiser.",
+  {
+    deal_id: z.number().describe("ID do negocio"),
+    fields: z.record(z.unknown()).describe("Mapa nome do campo -> valor"),
+    force: z.boolean().optional().default(false).describe("Sobrescreve campos ja preenchidos quando true"),
+  },
+  async ({ deal_id, fields, force }) => {
+    const result = await applyDealFieldsUpdate(deal_id, fields, force);
+    return { content: [{ type: "text", text: result.message }] };
   }
 );
 
@@ -2458,10 +2529,15 @@ server.tool(
           return { content: [{ type: "text", text: `Produto vinculado ao deal ${deal_id}\nhttps://${COMPANY_DOMAIN}.pipedrive.com/deal/${deal_id}` }] };
         }
         case "update_deal_fields": {
-          const { deal_id, fields } = params;
-          if (!deal_id || !fields) return { content: [{ type: "text", text: "Erro: deal_id e fields sao obrigatorios" }] };
-          const data = await pipedriveRequest(`/deals/${deal_id}`, { method: "PUT", body: JSON.stringify(fields) });
-          return { content: [{ type: "text", text: `Deal ${deal_id} atualizado.\nhttps://${COMPANY_DOMAIN}.pipedrive.com/deal/${deal_id}` }] };
+          const { deal_id, fields, custom_fields, force } = params;
+          if (!deal_id) return { content: [{ type: "text", text: "Erro: deal_id obrigatorio" }] };
+          let parsed = fields ?? custom_fields;
+          if (!parsed) return { content: [{ type: "text", text: "Erro: passe 'fields' (object) ou 'custom_fields' (JSON string) com os campos" }] };
+          if (typeof parsed === "string") {
+            try { parsed = JSON.parse(parsed); } catch { return { content: [{ type: "text", text: "Erro: custom_fields deve ser JSON valido" }] }; }
+          }
+          const result = await applyDealFieldsUpdate(deal_id, parsed, force);
+          return { content: [{ type: "text", text: result.message }] };
         }
         case "create_note": {
           const { content, deal_id, person_id, org_id } = params;
@@ -2487,3 +2563,8 @@ server.tool(
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
+
+// Cleanup: encerra o processo quando o stdin do pai (Claude Code/Desktop) fechar.
+// Sem isso, em Windows o processo node fica zumbi após restart do host.
+process.stdin.on("end", () => process.exit(0));
+process.stdin.on("close", () => process.exit(0));

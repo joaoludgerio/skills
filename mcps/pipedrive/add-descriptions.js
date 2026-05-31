@@ -75,47 +75,47 @@ const dealFieldMeta = {
 
   // === SEÇÃO 2: Informações do Negócio (SPICED) ===
   "Como funcionam o processos da empresa": {
-    description: "SPICED-S: Como o prospect qualifica leads. Perguntas, formulários, critérios, fluxo de qualificação.",
+    description: "Como o prospect qualifica leads. Perguntas, formulários, critérios, fluxo de qualificação.",
     section: "informacoes_negocio"
   },
   "Tipo de venda": {
-    description: "SPICED-S: Como a empresa vende. Multi-seleção: agenda reunião, vende por WA/IG, site, transfere lead.",
+    description: "Como a empresa vende. Multi-seleção: agenda reunião, vende por WA/IG, site, transfere lead.",
     section: "informacoes_negocio"
   },
   "Funis de vendas utilizados": {
-    description: "SPICED-S: Fluxo completo do lead. De onde vem e caminho que percorre. Ex: 'Anúncio IG > LP > Form > SDR > WA'.",
+    description: "Fluxo completo do lead. De onde vem e caminho que percorre. Ex: 'Anúncio IG > LP > Form > SDR > WA'.",
     section: "informacoes_negocio"
   },
   "Canais de atendimento atuais": {
-    description: "SPICED-S: Canais que a empresa do prospect já usa para atender leads/clientes. Multi-seleção.",
+    description: "Canais que a empresa do prospect já usa para atender leads/clientes. Multi-seleção.",
     section: "informacoes_negocio"
   },
   "Tamanho acumulado da lista de leads": {
-    description: "SPICED-S: Base ACUMULADA de contatos (leads antigos + novos). Importante para re-prospecção de base.",
+    description: "Base ACUMULADA de contatos (leads antigos + novos). Importante para re-prospecção de base.",
     section: "informacoes_negocio"
   },
   "Detalhes sobre volume de Leads e Clientes": {
-    description: "SPICED-S: Números EXATOS citados pelo prospect. Complementa os enums. Ex: '3.700 leads, 300 novos/mês, 8% conversão'.",
+    description: "Números EXATOS citados pelo prospect. Complementa os enums. Ex: '3.700 leads, 300 novos/mês, 8% conversão'.",
     section: "informacoes_negocio"
   },
   "Estrutura de colaboradores": {
-    description: "SPICED-S: Detalhes da equipe com cargos e divisões. Quem faz o quê. Ex: '5 SDRs, 3 closers, 2 CS'.",
+    description: "Detalhes da equipe com cargos e divisões. Quem faz o quê. Ex: '5 SDRs, 3 closers, 2 CS'.",
     section: "informacoes_negocio"
   },
   "Dores": {
-    description: "SPICED-P: Frustrações VERBALIZADAS pelo prospect. Só preencher se usou palavras como 'problema', 'dificuldade'. Na dúvida, deixar em branco.",
+    description: "Frustrações VERBALIZADAS pelo prospect. Só preencher se usou palavras como 'problema', 'dificuldade'. Na dúvida, deixar em branco.",
     section: "informacoes_negocio"
   },
   "Objetivos com a automação": {
-    description: "SPICED-P: O que o prospect QUER ALCANÇAR. Complemento de Dores. Ex: 'Automatizar follow-up, dashboard de performance'.",
+    description: "O que o prospect QUER ALCANÇAR. Complemento de Dores. Ex: 'Automatizar follow-up, dashboard de performance'.",
     section: "informacoes_negocio"
   },
   "Oportunidades de melhoria": {
-    description: "SPICED-I: O que NÓS podemos fazer. Features, campanhas, automações dos nossos produtos que resolvem os problemas dele.",
+    description: "O que NÓS podemos fazer. Features, campanhas, automações dos nossos produtos que resolvem os problemas dele.",
     section: "informacoes_negocio"
   },
   "Nível de prioridade da contratação": {
-    description: "SPICED-C: Urgência da contratação. Baixa (sem urgência), Média (sem prazo), Alta (tem prazo), Crítica (urgente).",
+    description: "Urgência da contratação. Baixa (sem urgência), Média (sem prazo), Alta (tem prazo), Crítica (urgente).",
     section: "informacoes_negocio"
   },
   "Automações que utiliza atualmente": {

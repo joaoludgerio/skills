@@ -61,6 +61,11 @@ async function main() {
   // Connect via stdio
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  // Cleanup: encerra o processo quando o stdin do pai (Claude Code/Desktop) fechar.
+  // Sem isso, em Windows o processo node fica zumbi após restart do host.
+  process.stdin.on("end", () => process.exit(0));
+  process.stdin.on("close", () => process.exit(0));
 }
 
 main().catch((err) => {
