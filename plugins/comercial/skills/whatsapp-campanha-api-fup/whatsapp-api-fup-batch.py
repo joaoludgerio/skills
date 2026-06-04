@@ -137,10 +137,15 @@ def _normalize_phone(phone):
     import re
     return re.sub(r'[^\d]', '', str(phone or ''))
 
-def disparar(creds, deal_id, person_id, phone, miolo, dialog_id, name=None, target_stage_on_success=None):
-    """Executa as 5 fases pra 1 lead. Retorna dict com resultado."""
+def disparar(creds, deal_id, person_id, phone, miolo, dialog_id, name=None, target_stage_on_success=None, assign_dialog_id=None):
+    """Executa as 5 fases pra 1 lead. Retorna dict com resultado.
+
+    assign_dialog_id (opcional): se passado, apos o template (F3) executa um SEGUNDO
+    dialog de atribuicao/roteamento (F3.5) — ex: jogar o lead pro vendedor ou pro time
+    comercial e arquivar o chat. Falha na atribuicao NAO marca o lead como erro (o
+    disparo principal ja foi); fica registrada em assign_erro no retorno."""
     phone = _normalize_phone(phone)  # remove (), -, espacos antes de qualquer chamada
-    erro = None; chat_id = None; phone_used = phone; chat_added = False
+    erro = None; chat_id = None; phone_used = phone; chat_added = False; assign_erro = None
 
     # F2 + F2.6: 3 campos numa chamada (com fallback de phone)
     fields = {
@@ -184,6 +189,16 @@ def disparar(creds, deal_id, person_id, phone, miolo, dialog_id, name=None, targ
             r3 = _cg_call(creds, 'dialog_execute', {'chat_number': phone_used, 'dialog_id': dialog_id})
             if r3.get('result') != 'success':
                 erro = f'F3: {r3.get("dialog_execution_return") or r3.get("description") or r3}'
+
+    # F3.5: dialog de atribuicao/roteamento (opcional). Roda so se o template foi OK.
+    # Falha aqui NAO marca o lead como erro — o disparo principal ja aconteceu.
+    if not erro and assign_dialog_id:
+        ra = _cg_call(creds, 'dialog_execute', {'chat_number': phone_used, 'dialog_id': assign_dialog_id})
+        if ra.get('result') != 'success':
+            time.sleep(1)
+            ra = _cg_call(creds, 'dialog_execute', {'chat_number': phone_used, 'dialog_id': assign_dialog_id})
+            if ra.get('result') != 'success':
+                assign_erro = ra.get('dialog_execution_return') or ra.get('description') or str(ra)
 
     # F4: atividade + (em caso de erro) move pra Lead Mapeado e adiciona label ERRO DE DISPARO
     if erro:
@@ -230,17 +245,21 @@ def disparar(creds, deal_id, person_id, phone, miolo, dialog_id, name=None, targ
                 pass  # nao quebra o batch se falhar
 
     return {'deal_id': deal_id, 'phone': phone, 'phone_used': phone_used,
-            'chat_id': chat_id, 'chat_added': chat_added, 'ok': not erro, 'erro': erro}
+            'chat_id': chat_id, 'chat_added': chat_added, 'ok': not erro, 'erro': erro,
+            'assign_erro': assign_erro}
 
 # ───────────── RUN BATCH ───────────────────────────────────────────────────
-def run_batch(leads, dialog_id, log_path=None, verbose=True, target_stage_on_success=None):
+def run_batch(leads, dialog_id, log_path=None, verbose=True, target_stage_on_success=None, assign_dialog_id=None):
     """Roda o batch inteiro. Cada lead em `leads` precisa ter:
     deal_id, person_id, phone, name, miolo.
 
     target_stage_on_success (opcional): se passado, deals com sucesso sao movidos
     pra essa stage_id apos a atividade ser criada. Use TENTANDO_CONTATO_STAGE (65)
     quando o batch partir de Lead Mapeado ou outra etapa anterior. Default None
-    preserva comportamento legado (nao mexe em stage no sucesso)."""
+    preserva comportamento legado (nao mexe em stage no sucesso).
+
+    assign_dialog_id (opcional): dialog de atribuicao/roteamento rodado APOS o template
+    em cada lead (F3.5). Use DIALOG_ASSIGN_NIVERTON ou DIALOG_ASSIGN_TIME_VENDAS."""
     creds = _load_creds()
     log_f = None
     if log_path:
@@ -253,12 +272,14 @@ def run_batch(leads, dialog_id, log_path=None, verbose=True, target_stage_on_suc
             print(f'\n[{i}/{len(leads)}] {lead.get("name","?")} (deal {lead["deal_id"]})')
         r = disparar(creds, lead['deal_id'], lead['person_id'],
                      lead['phone'], lead['miolo'], dialog_id, name=lead.get('name'),
-                     target_stage_on_success=target_stage_on_success)
+                     target_stage_on_success=target_stage_on_success,
+                     assign_dialog_id=assign_dialog_id)
         r['name'] = lead.get('name')
         results.append(r)
         if verbose:
             tag = 'OK' if r['ok'] else 'ERRO'
             extra = '' if r['ok'] else f' — {r["erro"][:120]}'
+            if r['ok'] and r.get('assign_erro'): extra = f' (atribuicao falhou: {r["assign_erro"][:60]})'
             print(f'  -> {tag}{extra}')
         if log_f:
             log_f.write(json.dumps(r, ensure_ascii=False) + '\n'); log_f.flush()
@@ -268,6 +289,50 @@ def run_batch(leads, dialog_id, log_path=None, verbose=True, target_stage_on_suc
     if verbose:
         ok = sum(1 for r in results if r['ok'])
         print(f'\n=== {ok}/{len(results)} OK ===')
+    return results
+
+# ───────────── DIALOGS CONHECIDOS (ChatGuru API Oficial) ───────────────────
+# Pegar ID no painel ChatGuru, embaixo do nome do dialog. dialog_id sozinho nao
+# da acesso a nada (precisa de CG_KEY+account_id+phone_id, que ficam no JSON local).
+DIALOG_TEMPLATE_DISPARO   = '64998eac599de0399b0748d4'  # template gupshup utility_generico_05
+DIALOG_ASSIGN_NIVERTON    = '64998eac98d7c95e2f3ef60c'  # atribui lead ao vendedor Niverton
+DIALOG_ASSIGN_TIME_VENDAS = '6a1f8e82a8b8359bec3e6c3a'  # atribui ao time de vendas (sem vendedor especifico)
+
+def run_assign_batch(leads, assign_dialog_id, log_path=None, verbose=True):
+    """Roda SO o dialog de atribuicao/roteamento (sem template, sem mexer em campos
+    nem criar atividade). Use pra rotear leads JA disparados pro vendedor/time comercial
+    e arquivar o chat. Cada lead precisa ter: phone (e opcional name/deal_id pra log).
+    Faz fallback 12<->13 chars no phone. 1 retry no dialog."""
+    creds = _load_creds()
+    log_f = None
+    if log_path:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        log_f = open(log_path, 'a', encoding='utf-8')
+    results = []
+    for i, lead in enumerate(leads, 1):
+        phone = _normalize_phone(lead['phone'])
+        if verbose:
+            print(f'\n[{i}/{len(leads)}] {lead.get("name","?")} ({phone})')
+        # resolve a forma do phone que o ChatGuru reconhece (mesma logica do disparo)
+        r0, phone_used = _cg_with_fallback(creds, 'dialog_execute',
+                                           {'dialog_id': assign_dialog_id}, phone)
+        ok = r0.get('result') == 'success'
+        if not ok:
+            time.sleep(1)
+            r0 = _cg_call(creds, 'dialog_execute', {'chat_number': phone_used, 'dialog_id': assign_dialog_id})
+            ok = r0.get('result') == 'success'
+        erro = None if ok else (r0.get('dialog_execution_return') or r0.get('description') or str(r0))
+        res = {'deal_id': lead.get('deal_id'), 'name': lead.get('name'),
+               'phone': phone, 'phone_used': phone_used, 'ok': ok, 'erro': erro}
+        results.append(res)
+        if verbose:
+            print(f'  -> {"OK" if ok else "ERRO — " + str(erro)[:100]}')
+        if log_f:
+            log_f.write(json.dumps(res, ensure_ascii=False) + '\n'); log_f.flush()
+    if log_f: log_f.close()
+    if verbose:
+        n_ok = sum(1 for r in results if r['ok'])
+        print(f'\n=== {n_ok}/{len(results)} atribuidos ===')
     return results
 
 if __name__ == '__main__':

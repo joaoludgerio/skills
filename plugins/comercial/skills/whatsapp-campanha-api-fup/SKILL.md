@@ -46,6 +46,45 @@ ATENCAO: stage_id `2` NAO existe nesse pipeline. Se precisar referenciar "Tentan
 
 **Dialog ID do template** — NAO e constante. Pedir ao usuario a cada campanha (cada campanha tem seu template aprovado proprio).
 
+### Dialogs conhecidos do ChatGuru (API Oficial)
+
+Pegar o ID no painel ChatGuru, embaixo do nome do dialog. `dialog_id` sozinho nao da acesso a nada (precisa de CG_KEY+account_id+phone_id, que ficam no JSON local) — por isso pode ficar documentado. Tambem mapeados no engine como constantes (`DIALOG_TEMPLATE_DISPARO`, `DIALOG_ASSIGN_NIVERTON`, `DIALOG_ASSIGN_TIME_VENDAS`) e no Brain (nota `bywelcthbrfp`).
+
+| Dialog | ID | Funcao |
+|--------|-----|--------|
+| Template de disparo | `64998eac599de0399b0748d4` | manda a mensagem (template `gupshup utility_generico_05`, miolo no campo `Texto_do_Template`) |
+| Atribuir → Niverton | `64998eac98d7c95e2f3ef60c` | roteia o lead pro vendedor Niverton |
+| Atribuir → time de vendas | `6a1f8e82a8b8359bec3e6c3a` | manda pro time comercial (fila), sem vendedor especifico |
+
+### REGRA CRITICA — miolo SEMPRE linha unica (sem quebra de linha)
+
+O parametro `{{1}}` do template (`Texto_do_Template`) NAO aceita quebra de linha. Testado em todos os angulos (03/06/2026, numero fora da janela 24h = template HSM real):
+
+| Formato no miolo | Resultado |
+|------------------|-----------|
+| Linha unica (emoji 👉 / travessao — / pipe \|) | ✅ entrega perfeito |
+| `\n` (quebra de linha) | ❌ NAO entrega (erro Gupshup 132018) |
+| `\r\n` | ❌ contem \n, bloqueia igual |
+| U+2028 (Unicode Line Separator) | ❌ entrega como caractere lixo "⬛⬛" |
+| `<br>` / `<p>` (HTML) | ❌ aparece como texto literal |
+
+**Armadilha do teste:** dentro da janela de sessao de 24h (destinatario respondeu nas ultimas 24h) o WhatsApp manda como mensagem de sessao (texto livre) e o \n ate passa — mas isso NAO e o template. So testar FORA da janela. E `dialog_execute` retornar `success` NAO garante entrega (o Gupshup rejeita depois) — conferir no WhatsApp do destinatario ou no historico do chat.
+
+**Conclusao:** miolo SEMPRE em uma linha so, usando emoji/pontuacao como separador visual. Quebra de linha real exige reestruturar o template no Gupshup (quebras no corpo fixo + params separados {{1}}=nome {{2}}=miolo {{3}}=link) — reaprovacao Meta 1-2 dias. Detalhe completo no Brain (nota `rfn7klo8igyj`).
+
+### Dialog de atribuicao/roteamento (F3.5) — opcional
+
+Apos disparar o template, pode-se rodar um SEGUNDO dialog que roteia o lead pro vendedor/time e arquiva o chat. Dois modos:
+
+- **Junto com o disparo:** passar `assign_dialog_id=` no `run_batch()`. Roda o template + atribuicao em cada lead. Falha na atribuicao NAO marca o lead como erro (registra em `assign_erro` no resultado).
+- **Separado (leads ja disparados):** usar `run_assign_batch(leads, assign_dialog_id, log_path)` — roda SO o dialog de atribuicao, sem template/campos/atividade. Cada lead so precisa de `phone` (e opcional `name`/`deal_id` pro log). Tem fallback 12<->13 chars + 1 retry.
+
+```python
+# modo separado — rotear leads ja disparados pro time de vendas:
+eng.run_assign_batch(leads, assign_dialog_id=eng.DIALOG_ASSIGN_TIME_VENDAS,
+                     log_path=r'C:/tmp/disparo-x/assign.jsonl')
+```
+
 ---
 
 ## DECISOES COM O USUARIO ANTES DE EXECUTAR
