@@ -70,7 +70,7 @@ function normalizeProfile(items, requestedUsername) {
     caption: trimText(p.caption, 140),
     likes: num(p.likesCount ?? p.likes),
     comments: num(p.commentsCount ?? p.comments),
-    date: p.timestamp ?? p.takenAtTimestamp ?? null,
+    date: normalizeDate(p.timestamp ?? p.takenAtTimestamp),
     type: p.type ?? p.__typename ?? null,
     url: p.url ?? (p.shortCode ? `https://instagram.com/p/${p.shortCode}` : null),
   }));
@@ -192,6 +192,22 @@ function stderr(s) { process.stderr.write(s + "\n"); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+// Normaliza data de post pra ISO. O actor pode mandar timestamp ISO (string)
+// OU takenAtTimestamp como epoch em SEGUNDOS (10 dígitos) — `new Date(seg)`
+// trataria como ms e cairia em 1970, quebrando consistência/dias-desde-último.
+function normalizeDate(v) {
+  if (v == null) return null;
+  if (typeof v === "string") {
+    if (/^\d+$/.test(v.trim())) return normalizeDate(Number(v));
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? null : new Date(t).toISOString();
+  }
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const ms = v < 1e12 ? v * 1000 : v; // <1e12 ⇒ epoch em segundos
+    return new Date(ms).toISOString();
+  }
+  return null;
+}
 function trimText(s, n) { if (!s) return s; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 function fmtNum(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";

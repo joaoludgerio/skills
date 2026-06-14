@@ -1,11 +1,13 @@
 ---
 name: whatsapp-campanha-api-fup
-description: Executa campanha de follow-up em massa via WhatsApp API Oficial do ChatGuru. Para cada lead: le contexto no Pipedrive, gera miolo de mensagem personalizada (Framework BDR alta conversao), grava em campo personalizado Texto_do_Template no ChatGuru, captura chat_id retornado, grava Link do Chat API Oficial na pessoa do Pipedrive, executa dialogo do template oficial e registra atividade no deal (WhatsApp concluida em sucesso, Tarefa pendente em erro). TRIGGER quando usuario pedir "campanha de follow-up", "campanha de retomada", "disparar template oficial", "follow-up em massa via API oficial", "campanha API oficial", "disparar template ChatGuru", ou quando fornecer lista de deals etiquetados CAMP RETOM ou similar.
+description: Use quando o usuario pedir campanha de follow-up/reabordagem/retomada em MASSA via WhatsApp API Oficial (template aprovado) do ChatGuru no canal corporativo Expert Integrado. Gatilhos PT-BR: "campanha de follow-up", "campanha de retomada", "campanha de reabordagem em massa", "disparar template oficial", "follow-up em massa via API oficial", "campanha API oficial", "disparar template ChatGuru", ou quando fornecer lista/CSV de deals do Pipedrive etiquetados CAMP RETOM (ou similar) pra disparo em lote. NAO usar para mensagem individual, link wa.me, ou disparo pelo WhatsApp pessoal (whatsapp-agent) — esses sao outros modos.
 ---
 
 # WhatsApp Campanha API Oficial — Follow-up
 
 Skill para campanhas de follow-up onde a mensagem e disparada pelo aparelho da **API Oficial** do ChatGuru, usando template aprovado do WhatsApp Business API.
+
+> **Modo WhatsApp — CORPORATIVO (ChatGuru).** Esta skill opera SEMPRE pelo canal corporativo Expert Integrado via API REST do ChatGuru (`s13.expertintegrado.app`). NUNCA usar o MCP pessoal `whatsapp-agent` (Z-API/Supabase, telefone pessoal do Eric) nem montar links `wa.me` aqui — sao modos distintos e cruzar quebra a separacao pessoal/corporativo. So entra nesta skill quando o usuario pedir campanha/disparo via API oficial ou ChatGuru. Disparo individual de mensagem pessoal e outra skill/MCP.
 
 > **Seguranca:** todas as credenciais (PD_TOKEN, CG_KEY, CG_ACCT, phone_id) ficam APENAS no JSON local de config (`claude-sync/claude_desktop_config*.json`) — nunca hardcoded nesta skill nem em scripts versionados. A skill esta no GitHub publico (`expertintegrado/skills`); secret nunca pode aparecer aqui.
 
@@ -384,11 +386,11 @@ Leonardo, lembrei do Funnel Max porque vocês operam 350 leads/dia e a recupera�
 
 9. **Em caso de erro: move pra Lead Mapeado + label ERRO DE DISPARO** — quando o disparo falha (F2 + F2.1 + fallback de phone tudo esgotado), alem de criar a task "Erro de disparo", a engine tambem: (a) move o deal pra stage `Lead Mapeado` (id 64, pipeline Prospeccao 7), (b) adiciona o label `ERRO DE DISPARO` (id 390) preservando labels existentes. Resultado: deal sai do funil ativo de prospeccao, fica facil de filtrar pra triagem manual (basta filtrar por label 390). O atendente corrige o telefone no Pipedrive e re-roda o batch — dedup pula os ja feitos e o deal pode ser reprocessado se voltar pra etapa ativa.
 
-9. **PARAMETRO E `key`, NAO `api_key`** — a API REST do ChatGuru aceita `key=<token>`, nao `api_key`. Se rescrever a funcao `cg_call` do zero, conferir esse detalhe — caso contrario TODAS as chamadas voltam HTTP 400 com `"key ou account_id não informado(s)"`. Confirmado em sessao com Sonnet 4.6 que reescreveu sem consultar a skill e travou o batch inteiro.
+10. **PARAMETRO E `key`, NAO `api_key`** — a API REST do ChatGuru aceita `key=<token>`, nao `api_key`. Se rescrever a funcao `cg_call` do zero, conferir esse detalhe — caso contrario TODAS as chamadas voltam HTTP 400 com `"key ou account_id não informado(s)"`. Confirmado em sessao com Sonnet 4.6 que reescreveu sem consultar a skill e travou o batch inteiro.
 
-10. **Engine NAO move stage em caso de sucesso por padrao** — premissa implicita e que os leads ja estao em "Tentando contato" antes do batch. Quando o batch partir de outra etapa (ex: Lead Mapeado em campanhas de retry), passar `target_stage_on_success=65` no `run_batch()` pra que os sucessos sejam movidos pra Tentando contato. Sem isso, deals com sucesso ficam orfaos na etapa de origem (descoberto em 21/05/2026 ao rodar retry de 35 leads Calendly que estavam em Lead Mapeado).
+11. **Engine NAO move stage em caso de sucesso por padrao** — premissa implicita e que os leads ja estao em "Tentando contato" antes do batch. Quando o batch partir de outra etapa (ex: Lead Mapeado em campanhas de retry), passar `target_stage_on_success=65` no `run_batch()` pra que os sucessos sejam movidos pra Tentando contato. Sem isso, deals com sucesso ficam orfaos na etapa de origem (descoberto em 21/05/2026 ao rodar retry de 35 leads Calendly que estavam em Lead Mapeado).
 
-11. **stage_id 2 NAO existe no pipeline Prospeccao** — armadilha real: outras LLMs/skills usam 2 como "Tentando contato" generico, mas no Pipedrive Expert Integrado o stage_id correto e **65**. Tentativa de mover deal pra stage_id=2 retorna HTTP 400 `ERR_STAGE_NOT_FOUND`. Sempre conferir o mapa de stages na secao CONSTANTES.
+12. **stage_id 2 NAO existe no pipeline Prospeccao** — armadilha real: outras LLMs/skills usam 2 como "Tentando contato" generico, mas no Pipedrive Expert Integrado o stage_id correto e **65**. Tentativa de mover deal pra stage_id=2 retorna HTTP 400 `ERR_STAGE_NOT_FOUND`. Sempre conferir o mapa de stages na secao CONSTANTES.
 
 ---
 
@@ -406,20 +408,24 @@ CG_ACCT       = cg['CHATGURU_ACCOUNT_ID']
 PHONE_OFICIAL = cg['CHATGURU_PHONE_ID_OFICIAL']  # phone_id da API Oficial — tambem fora do repo
 ```
 
+**Fonte canonica dos secrets (1Password):** desde 09/05/2026 a fonte de verdade dos tokens e o 1Password Business, vault `Agentes Eric` (`op read "op://Agentes Eric/TOKEN/credential"`). O `setup-secrets.ps1` grava os valores reais como cache local. O engine atual le do `claude_desktop_config*.json` (cache local em claude-sync) por compatibilidade — isso funciona porque os JSONs sao cache da mesma origem. Se algum token estiver faltando no JSON, buscar primeiro no 1P (`PIPEDRIVE_API_KEY`, `CHATGURU_API_KEY`, `CHATGURU_ACCOUNT_ID`, `CHATGURU_PHONE_ID_OFICIAL`) e so entao no JSON. Ao rotacionar um token, rotacionar no 1P E re-rodar o setup pra propagar o cache.
+
 **Regras de seguranca:**
 - Nenhum desses 4 valores (`PD_TOKEN`, `CG_KEY`, `CG_ACCT`, `PHONE_OFICIAL`) pode aparecer em arquivo versionado (skill, script, README, log de exemplo).
-- Se for criar novo PC, copiar o JSON local por canal seguro e adicionar a chave `CHATGURU_PHONE_ID_OFICIAL` na secao `chatguru-mcp.env`.
-- Se um secret vazar para esta skill ou para qualquer arquivo do repo `expertintegrado/skills`, ROTACIONAR no painel do ChatGuru/Pipedrive antes de qualquer outra coisa.
+- Se for criar novo PC, rodar `setup-secrets.ps1` (puxa do 1P) — ele popula o `claude_desktop_config*.json`/`~/.claude.json` com `CHATGURU_PHONE_ID_OFICIAL` na secao `chatguru-mcp.env`. Nao copiar JSON com secret por canal inseguro.
+- Se um secret vazar para esta skill ou para qualquer arquivo do repo `expertintegrado/skills`, ROTACIONAR no 1Password + painel do ChatGuru/Pipedrive antes de qualquer outra coisa.
 
 ---
 
 ## ENGINE DE DISPARO — usar o script reutilizavel
 
-A logica de disparo (5 fases + fallback de phone + retry de dialog) vive em UM unico arquivo, fora do repo da skill, sobrevive a compacts:
+A logica de disparo (5 fases + fallback de phone + retry de dialog) vive em UM unico arquivo, fora do repo da skill, sobrevive a compacts. **Single source of truth executavel:**
 
 ```
 C:/Users/Eric Luciano/OneDrive/Workspace/claude-sync/scripts/whatsapp-api-fup-batch.py
 ```
+
+> O arquivo `whatsapp-api-fup-batch.py` ao lado deste SKILL.md (dentro do repo) e apenas um ESPELHO de leitura para referencia/versionamento — NAO importar nem editar a copia do repo. Sempre importar e, se preciso, editar a copia em `claude-sync/scripts/` (a do repo nao roda em producao e pode ficar atras).
 
 **NAO reescrever esse engine do zero numa nova sessao** — importar e usar. O codigo ja trata: parametro `key` (nao `api_key`), fallback automatico 12<->13 chars, retry de `dialog_execute`, leitura de credenciais do JSON local, log incremental.
 

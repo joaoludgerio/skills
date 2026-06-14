@@ -33,10 +33,13 @@ Auto-confirmação por botão (`status_presenca = "confirmado"` sem mensagem na 
 
 ### Passo 2: Para cada participante, ler conversa no WhatsApp
 ```
-mcp__whatsapp-agent__read(phone=telefone, limit=30)
+mcp__whatsapp-agent__read(chat=telefone, limit=30)
 ```
+O parâmetro é `chat` (aceita nome, telefone ou chat_id) — NÃO existe parâmetro `phone`.
 
-Se o MCP retornar áudios já transcritos (campo `transcript`), usar o texto direto. Download/transcrição de áudio é responsabilidade do MCP, não dessa skill.
+Se o MCP retornar áudios já transcritos (campo `transcription`), usar o texto direto. Download/transcrição de áudio é responsabilidade do MCP, não dessa skill.
+
+**ATENÇÃO LIDs:** Eric às vezes responde leads num chat LID separado (formato `XXXXXXXX@lid`) que não aparece no read por número. Se a leitura por telefone só trouxer mensagens antigas, rodar `mcp__whatsapp-agent__inbox(since=<últimas 48h>)` ou `search(query=<nome do lead>)` pra achar o LID, então `read(chat=<LID@lid>, limit=30)`.
 
 ### Passo 3: Classificar resposta
 
@@ -49,12 +52,14 @@ Analisar as últimas mensagens **do convidado** (não as minhas):
 | **sem_resposta** | Não respondeu nada desde o disparo |
 | **em_avaliacao** | Fez pergunta, pediu detalhes, está conversando mas sem decisão final, "acho que dá", "vou tentar", logística pendente — **atualizar status para `em_avaliacao` no MCP e reportar pro Eric responder** |
 
-### Passo 4: Verificar leitura (quando relevante)
-Se `sem_resposta`, checar se a pessoa leu:
+### Passo 4: Distinguir "não respondeu" de "respondeu noutro chat"
+Para os `sem_resposta`, confirmar que a pessoa realmente não respondeu (e não que a resposta veio num chat LID separado — ver atenção LIDs no Passo 2):
 ```
-mcp__whatsapp-agent__status(message_id=...)
+mcp__whatsapp-agent__inbox(waiting_on="eric", since=<data do disparo>)
 ```
-Útil pra Eric decidir se faz follow-up.
+Se o lead aparecer em `waiting_on="eric"`, ele respondeu e o ciclo está ABERTO — reclassificar.
+
+Observação: o whatsapp-agent NÃO expõe confirmação de leitura (read receipt). `mcp__whatsapp-agent__status` só checa se o WhatsApp está conectado, não diz se uma mensagem foi lida. Não inventar status de leitura — reportar `sem_resposta` como candidato a follow-up e deixar o Eric decidir.
 
 ### Passo 5: Atualizar status no MCP
 
@@ -91,13 +96,27 @@ Reportar pro Eric pra ele decidir o follow-up.
 
 A atividade "Convite enviado, imersão, ..." já foi criada concluída na hora do envio (skill `convidar-evento`). Aqui registramos o **desfecho** baseado na resposta do lead.
 
-**Pré-requisito:** achar o `person_id` do lead no Pipedrive (search_persons pelos últimos 8 dígitos do telefone, ou pelo nome). Se não existe, criar.
+**Pré-requisito:** achar o `person_id` do lead no Pipedrive.
+```
+mcp__pipedrive__search_persons(term=<últimos 8 dígitos do telefone>)
+# se não achar, tentar pelo nome; se ainda assim não existir, criar:
+mcp__pipedrive__create_person(
+  name=<nome>,
+  phone=<telefone 55XXXXXXXXXXX, só dígitos>,
+  owner_id="Eric Luciano"
+)
+# depois, 1x na vida (NUNCA sobrescrever se já tiver valor):
+mcp__pipedrive__update_person(
+  person_id=<id>,
+  custom_fields='{"Origem do Contato": "INDIC | Direta do Eric"}'
+)
+```
 
 **Confirmou:** criar atividade pendente "Reunião Geral - Imersão" pra dia do evento + nota.
 ```
 mcp__pipedrive__create_activity(
   subject="Reunião Geral - Imersão '<nome do evento>' <Xª edição>",
-  type="reuniao_geral",  # ou tipo equivalente do Pipedrive
+  type="apresentacao",  # key da API; nome visível "Reunião Geral". NÃO usar "reuniao_geral" (não é tipo válido)
   due_date="<YYYY-MM-DD do evento>",
   person_id=<id>,
   user_id="Eric Luciano",
@@ -138,16 +157,16 @@ mcp__pipedrive__create_note(
 
 Tabela:
 
-| Nome | Classificação | Leu? | Última mensagem dele | Ação |
-|------|---------------|------|----------------------|------|
-| ... | confirmado | ✓ | "tô dentro" | atualizado pra aceitou_convite |
-| ... | em_andamento | ✓ | "tem estacionamento?" | PRECISA SUA RESPOSTA |
-| ... | sem_resposta | ✗ | — | — |
+| Nome | Classificação | Última mensagem dele | Ação |
+|------|---------------|----------------------|------|
+| ... | confirmado | "tô dentro" | atualizado pra aceitou_convite |
+| ... | em_avaliacao | "tem estacionamento?" | PRECISA SUA RESPOSTA |
+| ... | sem_resposta | — | candidato a follow-up |
 
 Separar em blocos:
-- **Confirmados** (atualizados)
-- **Recusados** (atualizados)
-- **Em andamento** (precisam resposta do Eric)
+- **Confirmados** (atualizados pra `aceitou_convite`)
+- **Recusados** (atualizados pra `recusou`)
+- **Em avaliação** (`em_avaliacao` — precisam resposta do Eric)
 - **Sem resposta** (candidatos a follow-up)
 
 ---
@@ -168,12 +187,14 @@ Ao varrer respostas, pra cada conversa decidir se o ciclo está aberto ou fechad
 
 **Regra de bolso:** se a próxima msg do Eric soaria forçada/redundante ("desliga você primeiro, não, desliga você"), NÃO mandar. Reação ou silêncio com ciclo fechado é melhor que texto vazio.
 
-**Se `react` falhar (erro Z-API):** cair pro fallback de texto curto equivalente ("Combinado!", "Anotado!", "Tranquilo, obrigado!"). NÃO deixar a thread sem fechamento se o lote inteiro recebeu fechamento.
+**Quem executa o fechamento:** esta skill NÃO dispara mensagem automaticamente (ver Regra 1). O agente PROPÕE o fechamento (texto sugerido ou reação) e só executa após Eric confirmar. Reação rápida (`mcp__whatsapp-agent__react`) e texto curto vão pelo whatsapp-agent (WhatsApp PESSOAL do Eric) — nunca por outro canal.
+
+**Se `react` falhar (erro Z-API):** sugerir o fallback de texto curto equivalente ("Combinado!", "Anotado!", "Tranquilo, obrigado!"). NÃO deixar a thread sem fechamento se o lote inteiro recebeu fechamento.
 
 ## REGRAS IMPORTANTES
 
 1. **NUNCA responder automaticamente** ao convidado — apenas ler, classificar e SUGERIR resposta pro Eric (Eric envia)
-2. **Em caso de dúvida na classificação**, marcar como `em_andamento` e pedir ao Eric
+2. **Em caso de dúvida na classificação**, marcar como `em_avaliacao` e pedir ao Eric
 3. **Respeitar tom do convidado** — se a pessoa está negociando data/detalhes, NÃO é recusa
 4. **Confirmação por botão sem mensagem**: se o sistema marcou `status_presenca = confirmado` automaticamente mas a pessoa não escreveu nada, reportar como "auto-confirmou (precisa validação)"
 5. **Paralelizar leituras** quando possível (múltiplos agents)

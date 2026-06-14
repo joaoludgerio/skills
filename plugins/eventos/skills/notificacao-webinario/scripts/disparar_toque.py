@@ -82,13 +82,13 @@ def deals_origem(evento):
 def miolo(toque, nome, emp, zoom, diag, evento):
     e = emp if valido(emp) else None
     M = {
-      1:f'{nome}, falta pouco pro {evento}! E ao vivo e sem reprise, separa o horario que o conteudo vai direto ao ponto pra sua empresa. Salva o link e te vejo la 👉 {zoom}',
-      2:f'{nome}, comecamos em 1 hora! Deixa tudo pronto pra entrar ao vivo. Link do Zoom aqui 👉 {zoom}',
-      3:f'{nome}, comecamos agora! Entra que ja vamos abrir, microfone mutado e camera a teu criterio 👉 {zoom}',
-      4:f'{nome}, chegou a parte mais importante do {evento}, o que vem agora muda como voce opera com IA. Nao sai! Se ainda nao entrou, corre 👉 {zoom}',
-      5:f'Tenho um presente pra voce, {nome}! Liberamos um diagnostico gratuito de IA individual pra {("a "+e) if e else "sua empresa"}, 45 minutos com um consultor pra voce sair com um plano pratico. Vagas limitadas, agenda 👉 {diag}',
-      6:f'{nome}, nao quero que voce perca: o diagnostico gratuito de IA que liberamos ainda ta de pe, mas as vagas tao acabando. 45 minutos pra sair com um plano pratico pra sua empresa. Garante o seu 👉 {diag}',
-      7:f'{nome}, ultima chamada: hoje fechamos as vagas do diagnostico gratuito de IA. Nao deixa passar, sao 45 minutos que podem mudar o rumo da sua empresa 👉 {diag}',
+      1:f'{nome}, falta pouco pro {evento}! É ao vivo e sem reprise, separa o horário que o conteúdo vai direto ao ponto pra sua empresa. Salva o link e te vejo lá 👉 {zoom}',
+      2:f'{nome}, começamos em 1 hora! Deixa tudo pronto pra entrar ao vivo. Link do Zoom aqui 👉 {zoom}',
+      3:f'{nome}, começamos agora! Entra que já vamos abrir, microfone mutado e câmera a teu critério 👉 {zoom}',
+      4:f'{nome}, chegou a parte mais importante do {evento}, o que vem agora muda como você opera com IA. Não sai! Se ainda não entrou, corre 👉 {zoom}',
+      5:f'Tenho um presente pra você, {nome}! Liberamos um diagnóstico gratuito de IA individual pra {("a "+e) if e else "sua empresa"}, 45 minutos com um consultor pra você sair com um plano prático. Vagas limitadas, agenda 👉 {diag}',
+      6:f'{nome}, não quero que você perca: o diagnóstico gratuito de IA que liberamos ainda tá de pé, mas as vagas tão acabando. 45 minutos pra sair com um plano prático pra sua empresa. Garante o seu 👉 {diag}',
+      7:f'{nome}, última chamada: hoje fechamos as vagas do diagnóstico gratuito de IA. Não deixa passar, são 45 minutos que podem mudar o rumo da sua empresa 👉 {diag}',
     }
     return M[toque]
 

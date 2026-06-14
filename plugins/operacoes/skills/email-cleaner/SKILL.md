@@ -1,8 +1,8 @@
 ---
 name: email-cleaner
-description: "Limpa a inbox do Outlook do Eric usando regras canônicas + classificação por LLM com leitura do conteúdo. Move pra pastas semânticas em vez de deletar (exceto phishing comprovado). Use quando o Eric pedir 'limpa minha inbox', 'tô com email acumulado', 'organiza meu Outlook', 'varre os não lidos', ou similar."
+description: "Use quando o Eric pedir pra organizar/limpar a inbox do Outlook em massa: 'limpa minha inbox', 'tô com email acumulado', 'organiza meu Outlook', 'varre os não lidos', 'arruma minha caixa de entrada', 'tira o lixo do email', 'classifica meus emails'. Limpa a inbox do Outlook do Eric movendo pra pastas semânticas em vez de deletar (deleta só phishing/spam comprovado). NÃO usar pra ler, responder ou enviar UM email específico — só pra triagem em volume."
 argument-hint: "[--dry-run] [--max=N]"
-allowed-tools: Bash, Read, Edit
+allowed-tools: Bash, Read, Edit, mcp__expert-brain__recall
 ---
 
 Skill que limpa a inbox do Outlook do Eric com princípio **"ler antes de deletar"**.
@@ -12,7 +12,7 @@ Skill que limpa a inbox do Outlook do Eric com princípio **"ler antes de deleta
 1. **Ler antes de deletar** — só deleta phishing comprovado e propaganda 100% genérica. Resto vai pra pasta semântica.
 2. **Reversibilidade > velocidade** — mover pra pasta sempre prefere a deletar.
 3. **Aprender com decisões** — toda decisão manual do Eric vira regra em `rules.json`.
-4. **Cliente reclamando = checar ClickUp antes** — antes de propor resposta a cliente externo, recall no Brain (`ona1g1cgyqz3`) + verificar Lista Satisfação dos Clientes (`https://app.clickup.com/30962394/v/b/xgwpu-68133`).
+4. **Cliente reclamando = checar ClickUp antes** — antes de propor resposta a cliente externo, recall no Brain (`ona1g1cgyqz3`) + verificar a lista "Satisfação dos clientes" (`list_id 901305474727`, https://app.clickup.com/30962394/v/l/6-901305474727-1).
 
 ## Pastas semânticas
 
@@ -37,29 +37,31 @@ A skill cria automaticamente se faltar:
 
 ### Setup do ambiente (1x por máquina)
 
-A skill é self-contained — tem `package.json` próprio com `@azure/msal-node`. Em máquina nova:
+A skill é self-contained — tem `package.json` próprio com `@azure/msal-node`. `${CLAUDE_PLUGIN_ROOT}` aponta pra raiz do plugin `operacoes` instalado (a pasta que contém `.claude-plugin/plugin.json`, geralmente em `~/.claude/plugins/cache/expertintegrado/skills/<versao>/plugins/operacoes/`), então o caminho da skill é `${CLAUDE_PLUGIN_ROOT}/skills/email-cleaner`. Em máquina nova:
 
 ```bash
-cd "${CLAUDE_PLUGIN_ROOT}/plugins/operacoes/skills/email-cleaner" && npm install
+cd "${CLAUDE_PLUGIN_ROOT}/skills/email-cleaner" && npm install
 ```
 
 Depois disso, basta chamar o script direto (não precisa cd nem nada):
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/plugins/operacoes/skills/email-cleaner/scripts/cleaner.mjs" <subcomando>
+node "${CLAUDE_PLUGIN_ROOT}/skills/email-cleaner/scripts/cleaner.mjs" <subcomando>
 ```
 
 ### 1. Pré-flight
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/plugins/operacoes/skills/email-cleaner/scripts/cleaner.mjs" --auth-check
+node "${CLAUDE_PLUGIN_ROOT}/skills/email-cleaner/scripts/cleaner.mjs" --auth-check
 ```
 
 Se retornar "SEM_AUTH", pedir pro Eric rodar (ele precisa fazer no terminal dele):
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/plugins/operacoes/skills/email-cleaner/scripts/cleaner.mjs" --auth
+node "${CLAUDE_PLUGIN_ROOT}/skills/email-cleaner/scripts/cleaner.mjs" --auth
 ```
 E aguardar confirmação.
+
+> Nos passos abaixo, `.../cleaner.mjs` é abreviação do caminho completo definido no Setup: `${CLAUDE_PLUGIN_ROOT}/skills/email-cleaner/scripts/cleaner.mjs`. Sempre executar com o caminho completo.
 
 ### 2. Snapshot dos não lidos
 
@@ -104,10 +106,14 @@ Ler corpo, classificar em uma das categorias (mover pra pasta correspondente) ou
 ### 6. Apresentar humanos pro Eric
 
 Pra cada humano confirmado, **antes de propor ação**:
-1. Recall no Brain: `mcp__expert-brain__recall("Lista Satisfação ClickUp <nome cliente>")`
-2. Se cliente reclamando, consultar lista ClickUp `901305474727` via API REST direta
-3. Se já tem CS cuidando, marcar email como lido (não envolver Eric)
-4. Se NÃO tem ninguém cuidando, apresentar pro Eric com contexto + sugestão
+1. Recall no Brain: `mcp__expert-brain__recall("Lista Satisfação ClickUp <nome cliente>")` (nota canônica `ona1g1cgyqz3`)
+2. Se o email é reclamação ou cancelamento de cliente, consultar a lista ClickUp "Satisfação dos clientes" (`list_id 901305474727`) via API REST direta antes de propor resposta. Regra canônica (CLAUDE.md):
+   - Card existe + assignee CS ativo → Eric NÃO intervém, só marcar email como lido.
+   - Card sem movimento → escalar internamente.
+   - Sem card + cliente reclamando → criar card e atribuir ao CS (não improvisar resposta).
+3. Caso não seja reclamação e ninguém esteja cuidando → apresentar pro Eric com contexto + sugestão.
+
+Qualquer rascunho de resposta a humano externo DEVE usar acentuação correta do português e tom curto, sem emoji.
 
 ### 7. Cauda longa final
 

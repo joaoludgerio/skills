@@ -25,7 +25,9 @@ SERVICE_ROLE = os.environ.get("SUPABASE_SERVICE_ROLE")
 if not PAT:
     print(
         "ERRO: SUPABASE_PAT precisa estar definida no env.\n"
-        "       Tokens vivem em memory-mcp/expert-brain: 'supabase-pat'.",
+        "       Token canonico no 1Password (vault 'Agentes Eric'):\n"
+        "       op read \"op://Agentes Eric/SUPABASE_PAT/credential\"\n"
+        "       Cache local em ~/.claude.json (apos setup-secrets.ps1).",
         file=sys.stderr,
     )
     sys.exit(2)

@@ -103,6 +103,8 @@ C:/Users/Eric Luciano/OneDrive/Workspace/claude-sync/scripts/whatsapp-central-pr
 
 **NAO reescrever esse engine inline numa nova sessao** — importar e usar. O codigo ja trata: parametro `key` (nao `api_key`), fallback 12<->13 chars, conversao BRT->UTC pra atividades Pipedrive REST, dedup via `results.jsonl`, log incremental, retry automatico em chamadas de rede.
 
+> **Duas copias do engine — uma so e canonica.** A copia ao lado deste SKILL.md (`whatsapp-central-prospeccao-batch.py` na pasta da skill) e apenas um espelho versionado pra distribuicao via marketplace/leitura. A copia **canonica de runtime** e a do `claude-sync/scripts/` (caminho importado acima) — e dela que o `eng.run_batch` roda. Ao corrigir logica, editar a canonica em `claude-sync/scripts/` e DEPOIS sincronizar o espelho da skill (copiar por cima) pra nao divergir. Nunca importar a copia da pasta da skill em runtime.
+
 ### Como invocar (em qualquer sessao, mesmo apos compact):
 
 ```python
@@ -189,16 +191,16 @@ Imprime o que faria sem chamar APIs.
 
 10. **Numero invalido no Pipedrive** — alguns leads tem phones bagunçados (sem DDI 55, prefixos invalidos como `90347`, digitos a mais). API ChatGuru retorna 400 "Chat nao existe". A engine registra em `errs` e segue. **chat_add ja faz fallback 12<->13 chars** (via `chat_add_with_fallback`) antes de marcar erro — se o phone original veio 12 chars, tenta com 9; se veio 13, tenta sem. Quando chat_add falha mesmo apos fallback, alem de logar o erro a engine: (a) cria task "Erro de disparo" (dono Expert Integrado, done=0), (b) move o deal pra stage `Lead Mapeado` (id 64), (c) adiciona label `ERRO DE DISPARO` (id 390) preservando labels existentes. Sai do funil ativo, fica facil de filtrar/triagem manual.
 
-13. **Nome do contato mal preenchido no Pipedrive** — alguns leads tem como nome um email (`fulano@dominio.com`), titulo profissional (`Psicóloga Fátima Cruz`), bot greeting (`Opa`, `Hola 👋`, `Quero Automatizar Funis`) ou nome de empresa (`Mister Massas`). A funcao `_clean_first_name` filtra esses casos: extrai segundo nome quando o primeiro eh titulo (Psicóloga -> Fátima), descarta emails com digitos, e cai em `amigo(a)` quando nao consegue extrair nome decente. Resultado: a saudacao "Oi {first_name}" nunca fica esquisita ("Oi Psicóloga,", "Oi Adrianocs16,").
+11. **Nome do contato mal preenchido no Pipedrive** — alguns leads tem como nome um email (`fulano@dominio.com`), titulo profissional (`Psicóloga Fátima Cruz`), bot greeting (`Opa`, `Hola 👋`, `Quero Automatizar Funis`) ou nome de empresa (`Mister Massas`). A funcao `_clean_first_name` filtra esses casos: extrai segundo nome quando o primeiro eh titulo (Psicóloga -> Fátima), descarta emails com digitos, e cai em `amigo(a)` quando nao consegue extrair nome decente. Resultado: a saudacao "Oi {first_name}" nunca fica esquisita ("Oi Psicóloga,", "Oi Adrianocs16,").
 
-11. **Atividade Call atrasada** — se a hora `call_due_time_brt` ja passou no momento do disparo, atividade aparece como ATRASADA no Pipedrive. Decisao com usuario: aceitar (sinaliza urgencia) ou reagendar pra horario futuro. Se reagendar em batch:
+12. **Atividade Call atrasada** — se a hora `call_due_time_brt` ja passou no momento do disparo, atividade aparece como ATRASADA no Pipedrive. Decisao com usuario: aceitar (sinaliza urgencia) ou reagendar pra horario futuro. Se reagendar em batch:
     ```python
     for r in results:
         if r.get('call_activity_id'):
             eng.pd_put(creds, f"/activities/{r['call_activity_id']}", {"due_time": "14:30"})  # UTC
     ```
 
-12. **chat_add_id != chat_id real** — `chat_add` retorna um `chat_add_id` (hash interno do registro async). O link real do chat eh outro hash diferente. NAO usar chat_add_id pra preencher "Link do Chat" na pessoa. Pra capturar o chat_id real, usar `chatguru_get_chat_link` (Playwright web scrape) — requer sessao ativa via `node login.js`. A engine **nao preenche** "Link do Chat" automaticamente — deixar pra processo posterior se necessario.
+13. **chat_add_id != chat_id real** — `chat_add` retorna um `chat_add_id` (hash interno do registro async). O link real do chat eh outro hash diferente. NAO usar chat_add_id pra preencher "Link do Chat" na pessoa. Pra capturar o chat_id real, usar `chatguru_get_chat_link` (Playwright web scrape) — requer sessao ativa via `node login.js`. A engine **nao preenche** "Link do Chat" automaticamente — deixar pra processo posterior se necessario.
 
 ---
 
@@ -219,7 +221,9 @@ CG_PHONE = cg['CHATGURU_PHONE_ID']   # Central (NAO o oficial)
 **Regras de seguranca:**
 - Nenhum desses 4 valores pode aparecer em arquivo versionado (skill, script, README, log de exemplo).
 - A engine ja le tudo do JSON local — nao reimplementar inline.
-- Se um secret vazar pra esta skill ou pro repo `expertintegrado/skills`, ROTACIONAR no painel ChatGuru/Pipedrive antes de qualquer outra coisa.
+- Se um secret vazar pra esta skill ou pro repo `expertintegrado/skills`, ROTACIONAR no 1Password (vault "Agentes Eric") + painel ChatGuru/Pipedrive antes de qualquer outra coisa.
+
+> **Fonte canonica dos secrets (atual):** o 1Password Business (vault "Agentes Eric", via `op read "op://Agentes Eric/<TOKEN>/credential"`) e a fonte de verdade; o `setup-secrets.ps1` propaga o cache local. Os arquivos `claude_desktop_config*.json` acima sao o cache legado que esta engine ainda le diretamente — funciona, mas esta divergindo do canon. Migrar a leitura da engine pra `op CLI` (ou pro cache `~/.claude.json`) e tarefa pendente no script compartilhado (fora desta skill). Ate la, garantir que esses JSON locais existam e estejam atualizados antes de rodar.
 
 ---
 

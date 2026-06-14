@@ -6,7 +6,6 @@
 - **Zoom** — Reunioes e chat interno
 - **Outlook / Microsoft 365** — Email e calendario
 - **ChatGuru** — Atendimento WhatsApp empresarial
-- **Notion** — Documentacao
 
 ## Automacao e Produto
 - **N8N** — Plataforma principal de automacao
@@ -23,8 +22,9 @@ MCPs sao conexoes que permitem ao Claude acessar suas ferramentas diretamente.
 | ClickUp | Tarefas, documentos, time tracking |
 | Zoom | Mensagens, canais e contatos do Zoom |
 | Outlook | E-mail, calendario e contatos Microsoft 365 |
-| ChatGuru | Conversas do WhatsApp empresarial (somente leitura) |
-| YouTube | Transcricao e analise de videos |
+| ChatGuru | WhatsApp empresarial (ler e enviar mensagens, notas, contexto) |
+
+Os MCPs disponiveis variam por colaborador conforme o que foi configurado na sua maquina. A lista acima sao os MCPs corporativos da Expert; nem todos estarao ativos no seu Claude.
 
 ## Roteamento — Qual ferramenta usar quando
 | Voce pede... | O Claude usa |
@@ -33,6 +33,10 @@ MCPs sao conexoes que permitem ao Claude acessar suas ferramentas diretamente.
 | Tarefas, projetos, time tracking | ClickUp |
 | E-mail, agenda, compromissos | Outlook |
 | Mensagens, canais do Zoom | Zoom |
-| Conversas do ChatGuru | ChatGuru |
-| Video, transcricao YouTube | YouTube |
-| Docs e databases | Notion |
+| WhatsApp empresarial (conversas, envio) | ChatGuru |
+
+## WhatsApp — atencao ao modo
+
+- "Manda no ChatGuru" / "responde no ChatGuru" → enviar pelo MCP ChatGuru (WhatsApp corporativo da Expert).
+- "Me passa o link de WhatsApp do fulano" → entregar apenas `https://wa.me/{numero}`, sem disparar mensagem.
+- Nunca disparar mensagem quando o pedido foi so pelo link.

@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: Onboarding de memoria do Claude para colaboradores da Expert Integrado. Configura CLAUDE.md, rules e memory com informacoes da empresa e preferencias pessoais. TRIGGER quando o usuario pedir para configurar memoria, fazer onboard, setup inicial, configurar CLAUDE.md, ou quando for um colaborador novo.
+description: Onboarding inicial da memoria do Claude para um colaborador NOVO da Expert Integrado (primeira configuracao do zero). Cria CLAUDE.md, rules e memory com info da empresa e preferencias do colaborador. TRIGGER quando o usuario pedir "fazer onboard", "onboarding de colaborador novo", "setup inicial do meu Claude", "configurar minha memoria pela primeira vez", "sou novo na Expert e quero configurar o Claude". NAO usar para editar/atualizar memoria ja existente (ex: "atualiza minha memoria com X") nem para a configuracao pessoal do Eric — para isso, editar os arquivos direto.
 ---
 
 # Onboarding de Memoria — Expert Integrado
@@ -19,7 +19,7 @@ Cumprimente o usuario e explique:
 - Sao algumas perguntas rapidas sobre voce e como voce trabalha
 - Leva menos de 5 minutos
 
-Pergunte (pode ser de uma vez, usando AskUserQuestion ou conversa):
+Faca as perguntas abaixo. Prefira UMA unica mensagem de conversa com a lista numerada (o colaborador responde tudo de uma vez) em vez de varios popups AskUserQuestion seguidos. Se usar AskUserQuestion, lembre que ele aceita no maximo 4 perguntas por chamada — entao agrupe, nao dispare 7 popups.
 
 1. **Nome completo**
 2. **Cargo/funcao** na Expert Integrado

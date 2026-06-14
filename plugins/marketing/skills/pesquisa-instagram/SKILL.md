@@ -27,15 +27,19 @@ Skill atômica da Expert Integrado: pesquisa UM perfil público do Instagram, de
 
 ## Setup (uma vez)
 
-Token de acesso em variável de ambiente:
+A skill lê o token Apify de `process.env.APIFY_TOKEN`. Fonte canônica: 1Password (vault `Agentes Eric`).
+
+**PC (Windows):** o token já fica cacheado no User env do Windows (gravado pelo `setup-secrets.ps1`). Em sessão nova ele carrega sozinho — nada a fazer. Pra checar:
 ```bash
-export APIFY_TOKEN="apify_api_..."
+node -e "console.log(process.env.APIFY_TOKEN ? 'ok' : 'faltando')"
 ```
 
-No container Claude Code (VPS), o Eric mantém em `/home/node/.claude/.env` (gitignored). Carregar antes de invocar:
+**Se faltar (qualquer máquina com `op` CLI):** exportar direto do 1Password antes de invocar:
 ```bash
-set -a; source /home/node/.claude/.env; set +a
+export APIFY_TOKEN="$(op read 'op://Agentes Eric/APIFY_TOKEN/credential')"
 ```
+
+Se o `op` CLI não estiver disponível, a skill aborta com `INVALID_TOKEN` pedindo pra setar a env — sem inventar workaround.
 
 ---
 

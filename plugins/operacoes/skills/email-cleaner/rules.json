@@ -155,12 +155,21 @@
       "reason": "Marketing PayPal."
     },
     {
+      "name": "Supabase security vulnerability",
+      "action": "move",
+      "folder": "Alertas Segurança",
+      "match_type": "domain_suffix",
+      "domains": ["@supabase.com", "@supabase.io"],
+      "subject_must_match": "(?i)security|vulnerability|CVE|breach|exposed",
+      "reason": "Alertas de segurança Supabase - precisa atenção imediata. Regra mais específica vem ANTES da genérica (first-match-wins)."
+    },
+    {
       "name": "Supabase OAuth approvals",
       "action": "move",
       "folder": "Notificações Sistema",
       "match_type": "domain_suffix",
       "domains": ["@supabase.com", "@supabase.io"],
-      "reason": "Aprovações OAuth e notificações de sistema. ATENÇÃO se subject contém 'security vulnerability' → mover pra Alertas Segurança em vez disso."
+      "reason": "Aprovações OAuth e notificações de sistema (não-segurança)."
     },
     {
       "name": "OpenAI billing/notify",
@@ -498,6 +507,6 @@
     "description": "Antes de propor ação a email de cliente externo, recall no Brain (ona1g1cgyqz3) e verificar Lista Satisfação ClickUp",
     "brain_note_id": "ona1g1cgyqz3",
     "clickup_list_id": "901305474727",
-    "clickup_view": "https://app.clickup.com/30962394/v/b/xgwpu-68133"
+    "clickup_view": "https://app.clickup.com/30962394/v/l/6-901305474727-1"
   }
 }

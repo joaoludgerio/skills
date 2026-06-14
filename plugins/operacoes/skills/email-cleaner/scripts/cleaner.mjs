@@ -287,7 +287,8 @@ async function applyRules(isExecute) {
     console.log(`  ${tag.padEnd(28)} ${String(count).padStart(4)}  ${rule.name}${status}`);
   }
 
-  console.log(`\nAfetados pelas regras: ${total} de ${all.length} (${(100 * total / all.length).toFixed(1)}%)`);
+  const pct = all.length ? (100 * total / all.length).toFixed(1) : "0.0";
+  console.log(`\nAfetados pelas regras: ${total} de ${all.length} (${pct}%)`);
   console.log(`Preservados (humano/equipe): ${preserved.length}`);
   console.log(`Não cobertos (precisam classificação): ${unmatched.length}`);
 

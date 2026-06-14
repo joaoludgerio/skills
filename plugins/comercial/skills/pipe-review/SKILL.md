@@ -1,6 +1,6 @@
 ---
 name: pipe-review
-description: Roda o Radar Comercial do Eric em modo skill (autocontido, sem SSH). Puxa deals abertos dos pipelines Super SDR/Educacional/SaaS via API Pipedrive, aplica 5 regras de higiene CRM, gera dashboard HTML dark-theme com gráficos SVG inline (donut + barras), faz deploy de produção em pipe-review.vercel.app, e o Claude reporta link + stats. TRIGGER quando Eric pedir pra rodar o radar comercial, pipe review, dashboard de higiene CRM, ou checagem da disciplina dos vendedores.
+description: Use quando Eric pedir pra rodar o radar comercial, "pipe review", dashboard de higiene CRM, checagem da disciplina/diligência dos vendedores nos pipelines (Super SDR / Educacional / SaaS), ou o relatório pré pipe review das 8h. Gera dashboard HTML auditando deals abertos do Pipedrive contra 5 regras de higiene e faz deploy em pipe-review.vercel.app. NÃO usar pra criar/editar deal específico, reabordar leads, agendar call, ou transferir lead — essas são outras skills do plugin comercial.
 ---
 
 # Pipe Review — Radar Comercial
@@ -54,8 +54,10 @@ VT="$(op read 'op://Agentes Eric/VERCEL_API_TOKEN/credential')" \
 node radar.cjs
 ```
 
-`<skill-dir>` no PC do Eric:
-`C:/Users/ericl/.claude/plugins/marketplaces/expertintegrado/plugins/comercial/skills/pipe-review`
+`<skill-dir>` quando instalada via marketplace (PC do Eric):
+`C:/Users/Eric Luciano/.claude/plugins/marketplaces/expertintegrado/plugins/comercial/skills/pipe-review`
+
+Não hardcodar esse caminho num comando — derivar do diretório da própria skill em execução (o `SKILL.md` que está sendo lido). O `scripts/radar.cjs` fica sempre em `<skill-dir>/scripts/radar.cjs`, qualquer que seja a máquina ou o usuário.
 
 **Tokens aceitos (qualquer um dos aliases):**
 - Pipedrive: `PD_TOKEN` | `PIPEDRIVE_API_TOKEN` | `PIPEDRIVE_API_KEY`
@@ -99,7 +101,7 @@ https://pipe-review.vercel.app
 
 Sempre referenciar a **URL canônica** `https://pipe-review.vercel.app`, não o `pipe-review-XXX.vercel.app` (esse é só o artefato do build).
 
-Se o Eric estiver fora do Claude Code (pediu por outro canal), notificar via canal de áudio dele — WhatsApp self-chat (`5511996647492`) como default, Telegram (`1028671416`) como fallback. Ver memória `canal_audio_eric`.
+Se o Eric estiver fora do Claude Code (pediu por outro canal), notificar via o canal canônico de avisos assíncronos: grupo WhatsApp **"Notificações dos Agentes"** (`chat_id 120363428759906229-group`) usando o MCP `whatsapp-agent` com `instance: "profissional"` (dispara do telefone corporativo; Eric lê do pessoal). Se bater no gate de inbound recente, reenviar com `force_send_after_inbound: true`. Detalhes na memória `canal-notificacoes-eric.md`.
 
 ### Passo 4: Logar só se houve desvio
 

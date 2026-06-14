@@ -48,16 +48,17 @@ Visual de referencia: foto circular do autor + nome com selo verificado + handle
 Antes de gerar, alinhar com o usuario:
 
 - **Texto** completo (quais palavras vao em negrito? marcar com `**`)
+- **Autor:** confirmar `--name` e `--handle` de quem assina o post. Esta skill e do plugin de marketing e e usada por varios colaboradores; os defaults sao "Eric Luciano"/"@ericluciano". Se quem pede NAO for o Eric, passar `--name`/`--handle` da pessoa certa pra nao estampar o nome errado.
 - **Tema:** claro (creme), branco puro, ou escuro (X preto)
 - **Formato:** feed quadrado (`1080x1080`), retrato (`1080x1350`) ou story (`1080x1920`)
 - **Avatar:** caminho da foto OU usar inicial estilizada
 - **Carrossel:** se for varios slides, listar texto de cada um
 
-Se o usuario nao especificar, usar defaults: tema `light`, formato `1080x1080`, avatar inicial, selo verificado ativo.
+Se o usuario nao especificar, usar defaults: nome/handle do Eric, tema `light`, formato `1080x1080`, avatar inicial (ou `TWEET_PRINT_DEFAULT_AVATAR` se setado), selo verificado ativo.
 
 ### 2. Garantir dependencias instaladas
 
-Na primeira execucao em uma maquina:
+Na primeira execucao em uma maquina. O `generate.py`, o `requirements.txt` e os comandos abaixo presumem que voce esta DENTRO da pasta da skill — sempre rodar a partir do diretorio da skill (`cd` no path completo `plugins/marketing/skills/tweet-print`) ou usar o caminho absoluto pro `generate.py`, ja que o cwd do agente nao e garantido:
 
 ```bash
 pip install -r requirements.txt
