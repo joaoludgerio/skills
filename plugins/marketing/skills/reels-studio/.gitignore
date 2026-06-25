@@ -1,0 +1,14 @@
+# segredos e config pessoal — NUNCA versionar
+config/chaves.env
+config/avatar.json
+config/elenco.json
+config/cta.mp4
+
+# saidas
+saida/
+*.mp4
+!config/cta.exemplo.mp4
+
+# temporarios
+__pycache__/
+*.pyc

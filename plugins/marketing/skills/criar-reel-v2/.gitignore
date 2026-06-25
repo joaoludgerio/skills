@@ -1,0 +1,5 @@
+credentials.env
+assets/voice-ref.wav
+assets/speaker-embed.onnx
+__pycache__/
+*.pyc

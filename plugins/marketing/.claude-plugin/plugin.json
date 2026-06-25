@@ -1,7 +1,7 @@
 {
   "name": "marketing",
-  "version": "2.0.0",
-  "description": "Skills de marketing e conteudo Expert Integrado: tweet print pra redes, pesquisa Instagram, geracao visual.",
+  "version": "2.1.0",
+  "description": "Skills de marketing e conteudo Expert Integrado: criacao de reels/video com avatar (criar-reel-v2, reels-studio, video), carrossel de Instagram (carrossel-studio), geracao de imagem com identidade (imagem), tweet print (tweet-print) e pesquisa de perfil Instagram (pesquisa-instagram).",
   "author": {
     "name": "Eric Luciano Ferreira",
     "email": "operacoes@expertintegrado.com.br",
@@ -10,5 +10,5 @@
   "homepage": "https://github.com/expertintegrado/skills",
   "repository": "https://github.com/expertintegrado/skills",
   "license": "MIT",
-  "keywords": ["expert-integrado", "marketing", "conteudo", "instagram", "visual"]
+  "keywords": ["expert-integrado", "marketing", "conteudo", "instagram", "visual", "reels", "video", "carrossel", "heygen", "avatar"]
 }

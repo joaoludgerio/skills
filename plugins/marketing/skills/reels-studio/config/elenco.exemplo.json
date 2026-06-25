@@ -1,0 +1,22 @@
+{
+  "_leia": "Copie pra config/elenco.json. O agente monta no onboarding a partir das suas respostas. Cada descricao em INGLES e bem detalhada (o gpt-image-2 entende melhor) e SEMPRE igual, pra manter consistencia entre os videos. Inclua os 'NUNCA' de cada personagem pra travar a geracao.",
+
+  "estilo": "ULTRA-DETAILED CINEMATIC 3D STYLE, premium movie-poster quality, soft volumetric lighting",
+  "ambiente": "a modern, bright home-office studio with warm wood, plants and soft daylight; subtle depth and bokeh",
+  "paleta": "warm neutrals, deep teal, soft orange accents; cinematic and clean",
+  "cor_gancho": "#0f8a8a",
+
+  "personagens": {
+    "principal": "ANA, the host: 30s Latina woman, shoulder-length wavy dark-brown hair, warm smile, wearing a mustard knit sweater, friendly confident vibe. NEVER change her hair color or outfit. NEVER an exaggerated cartoon.",
+    "mascote": "PIXEL, a small round friendly robot, matte white body with a single glowing teal screen-face, short floating arms. NEVER an insect, NEVER scary, NEVER human-sized."
+  },
+
+  "sempre_presentes": ["principal", "mascote"],
+
+  "extras": {
+    "cliente": "diverse, happy everyday people, natural clothes",
+    "tela": "a floating holographic UI panel with simple charts and message bubbles"
+  },
+
+  "area_segura": "IMPORTANTE: isso vira um video 16:9. Mantenha TODOS os personagens, rostos, logos e textos no centro (70%). Deixe as bordas de cima (~18%) e de baixo (~18%) so com ambiente, pra nada importante se perder no corte."
+}

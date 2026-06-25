@@ -1,0 +1,21 @@
+{
+  "_leia": "Copie pra config/avatar.json. Configura o avatar HeyGen que apresenta o reels. Crie o avatar no HeyGen, copie o ID dele em 'avatar_id'. A voz padrao usa o TTS nativo do HeyGen (so precisa HEYGEN_API_KEY). Pra voz clonada, troque 'voz' pelo bloco ElevenLabs comentado abaixo.",
+
+  "avatar_id": "COLE_AQUI_O_ID_DO_SEU_AVATAR_HEYGEN",
+
+  "voz": {
+    "tipo": "heygen",
+    "voice_id": "COLE_AQUI_UM_VOICE_ID_DO_HEYGEN",
+    "velocidade": 1.0
+  },
+
+  "_voz_elevenlabs_opcional": {
+    "tipo": "elevenlabs",
+    "voice_id": "SEU_VOICE_ID_ELEVENLABS",
+    "modelo": "eleven_turbo_v2_5",
+    "settings": {"stability": 0.45, "similarity_boost": 0.75, "style": 0.3, "use_speaker_boost": true}
+  },
+
+  "dimensao": {"width": 720, "height": 1280},
+  "fundo": {"type": "color", "value": "#0A0E1A"}
+}

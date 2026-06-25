@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor de Carrossel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;900&family=Space+Grotesk:wght@500;700&family=Archivo:wght@700;800;900&family=Poppins:wght@500;600;700&family=Libre+Baskerville:wght@700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ui-bg:#15161c; --ui-panel:#1d1f28; --ui-line:#2c2f3c; --ui-soft:#262934;
+    --ui-text:#e7e8ee; --ui-dim:#9a9db0; --ui-accent:#575ecf; --ui-accent2:#7d83e6;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:Inter,system-ui,Segoe UI,sans-serif;background:var(--ui-bg);color:var(--ui-text)}
+  button,input,select,textarea{font-family:inherit}
+  .app{display:grid;grid-template-columns:230px 1fr 320px;grid-template-rows:52px 1fr;height:100vh}
+  header{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--ui-panel);border-bottom:1px solid var(--ui-line)}
+  header .brand{font-weight:800;letter-spacing:.3px}
+  header .brand small{color:var(--ui-dim);font-weight:500;margin-left:8px}
+  header .spacer{flex:1}
+  .btn{border:1px solid var(--ui-line);background:var(--ui-soft);color:var(--ui-text);padding:8px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:.12s}
+  .btn:hover{border-color:var(--ui-accent);background:#23262f}
+  .btn.primary{background:var(--ui-accent);border-color:var(--ui-accent);color:#fff}
+  .btn.primary:hover{background:var(--ui-accent2)}
+  .btn.ghost{background:transparent}
+  .btn:disabled{opacity:.45;cursor:default}
+
+  /* left: slide list */
+  .rail{background:var(--ui-panel);border-right:1px solid var(--ui-line);overflow-y:auto;padding:12px}
+  .rail h3{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ui-dim);margin:4px 4px 10px}
+  .thumb{position:relative;border:2px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;margin-bottom:10px;background:#000}
+  .thumb.active{border-color:var(--ui-accent)}
+  .thumb canvas{display:block;width:100%}
+  .thumb .num{position:absolute;top:5px;left:6px;font-size:10px;font-weight:700;background:rgba(0,0,0,.55);padding:2px 6px;border-radius:6px}
+  .thumb .del{position:absolute;top:5px;right:6px;border:none;background:rgba(0,0,0,.55);color:#fff;border-radius:6px;width:20px;height:20px;cursor:pointer;font-size:12px;line-height:1;display:none}
+  .thumb:hover .del{display:block}
+  .rail .add{width:100%;border:1px dashed var(--ui-line);background:transparent;color:var(--ui-dim);padding:10px;border-radius:8px;cursor:pointer;font-weight:600}
+  .rail .add:hover{border-color:var(--ui-accent);color:var(--ui-text)}
+
+  /* center: stage */
+  .stage{display:flex;align-items:center;justify-content:center;overflow:auto;padding:28px;background:radial-gradient(1200px 600px at 50% -10%, #1c1e27, var(--ui-bg))}
+  .stagewrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+  #preview{box-shadow:0 18px 50px rgba(0,0,0,.5);border-radius:6px;height:74vh;width:auto;max-width:100%}
+  .navline{display:flex;align-items:center;gap:14px;color:var(--ui-dim);font-size:13px}
+  .navline button{border:1px solid var(--ui-line);background:var(--ui-soft);color:var(--ui-text);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px}
+  .navline button:hover{border-color:var(--ui-accent)}
+
+  /* right: inspector */
+  .insp{background:var(--ui-panel);border-left:1px solid var(--ui-line);overflow-y:auto;padding:16px}
+  .insp .tabs{display:flex;gap:6px;margin-bottom:14px}
+  .insp .tabs button{flex:1;padding:8px;border:1px solid var(--ui-line);background:var(--ui-soft);color:var(--ui-dim);border-radius:8px;cursor:pointer;font-weight:600;font-size:12px}
+  .insp .tabs button.on{background:var(--ui-accent);border-color:var(--ui-accent);color:#fff}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ui-dim);margin-bottom:5px}
+  .field input[type=text],.field textarea,.field select{width:100%;background:var(--ui-soft);border:1px solid var(--ui-line);color:var(--ui-text);border-radius:8px;padding:9px 10px;font-size:13px;resize:vertical}
+  .field textarea{min-height:64px;line-height:1.4}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--ui-accent)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .swatches{display:flex;flex-wrap:wrap;gap:8px}
+  .sw{width:34px;height:34px;border-radius:8px;border:2px solid transparent;cursor:pointer;position:relative}
+  .sw.on{border-color:#fff}
+  .chip{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip button{padding:7px 10px;border:1px solid var(--ui-line);background:var(--ui-soft);color:var(--ui-text);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600}
+  .chip button.on{background:var(--ui-accent);border-color:var(--ui-accent);color:#fff}
+  .color-row{display:flex;align-items:center;gap:8px}
+  .color-row input[type=color]{width:38px;height:34px;border:1px solid var(--ui-line);border-radius:8px;background:none;padding:2px;cursor:pointer}
+  .hint{font-size:11px;color:var(--ui-dim);line-height:1.5;margin-top:6px}
+  .seg{display:flex;border:1px solid var(--ui-line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;padding:8px;background:var(--ui-soft);border:none;color:var(--ui-dim);cursor:pointer;font-weight:600;font-size:12px}
+  .seg button.on{background:var(--ui-accent);color:#fff}
+  hr{border:none;border-top:1px solid var(--ui-line);margin:16px 0}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0d0e13;border:1px solid var(--ui-accent);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1}
+  .file-in{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Editor de Carrossel <small id="brandSub">Instagram · pronto pra postar</small></div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btnImport">Importar JSON</button>
+    <button class="btn ghost" id="btnExportJson">Salvar projeto</button>
+    <button class="btn primary" id="btnZip">Exportar PNGs (.zip)</button>
+    <input type="file" id="fileImport" class="file-in" accept="application/json,.json">
+  </header>
+
+  <aside class="rail">
+    <h3>Slides</h3>
+    <div id="thumbs"></div>
+    <button class="add" id="btnAdd">+ Adicionar slide</button>
+  </aside>
+
+  <main class="stage">
+    <div class="stagewrap">
+      <canvas id="preview"></canvas>
+      <div class="navline">
+        <button id="navPrev">‹</button>
+        <span id="navLabel">1 / 1</span>
+        <button id="navNext">›</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="insp">
+    <div class="tabs">
+      <button data-tab="slide" class="on">Slide</button>
+      <button data-tab="estilo">Estilo</button>
+    </div>
+
+    <div id="tabSlide">
+      <div class="field">
+        <label>Tipo do slide</label>
+        <div class="seg" id="segTipo">
+          <button data-tipo="capa">Capa</button>
+          <button data-tipo="conteudo" class="on">Conteúdo</button>
+          <button data-tipo="cta">CTA / Fechamento</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Kicker (rótulo de topo)</label>
+        <input type="text" id="fKicker" placeholder="ex: PASSO 1 · ou deixe vazio">
+      </div>
+      <div class="field">
+        <label>Título</label>
+        <textarea id="fTitulo" placeholder="A ideia principal do slide"></textarea>
+      </div>
+      <div class="field">
+        <label>Corpo</label>
+        <textarea id="fCorpo" placeholder="Texto de apoio (opcional na capa)"></textarea>
+      </div>
+      <div class="field">
+        <label>CTA / chamada</label>
+        <input type="text" id="fCta" placeholder="ex: Salva esse post · Arraste →">
+      </div>
+      <hr>
+      <div class="field">
+        <label>Alinhamento</label>
+        <div class="seg" id="segAlign">
+          <button data-al="left" class="on">Esquerda</button>
+          <button data-al="center">Centro</button>
+        </div>
+      </div>
+      <hr>
+      <div class="field">
+        <label>Foto no slide</label>
+        <button class="btn ghost" id="btnFoto" style="width:100%">+ Adicionar foto</button>
+        <input type="file" id="fileFoto" class="file-in" accept="image/*">
+        <div id="fotoCtrls" style="display:none;margin-top:8px">
+          <div class="seg" id="segFotoModo">
+            <button data-fm="fundo" class="on">Fundo</button>
+            <button data-fm="lado">Lado</button>
+          </div>
+          <button class="btn ghost" id="btnFotoRemover" style="width:100%;margin-top:8px">Remover foto</button>
+        </div>
+        <div class="hint">A foto fica embutida no arquivo (funciona offline). "Fundo" cobre o slide com overlay pra legibilidade; "Lado" põe a foto na metade.</div>
+      </div>
+    </div>
+
+    <div id="tabEstilo" style="display:none">
+      <div class="field">
+        <label>Formato</label>
+        <div class="seg" id="segFmt">
+          <button data-fmt="45" class="on">Retrato 4:5</button>
+          <button data-fmt="11">Quadrado 1:1</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Paleta</label>
+        <div class="swatches" id="palettes"></div>
+      </div>
+      <div class="field">
+        <label>Cores manuais</label>
+        <div class="color-row">
+          <span style="font-size:12px;color:var(--ui-dim);width:54px">Fundo</span>
+          <input type="color" id="cBg" value="#1b1b1b">
+          <span style="font-size:12px;color:var(--ui-dim);width:54px">Fundo 2</span>
+          <input type="color" id="cBg2" value="#2a2350">
+        </div>
+        <div class="color-row" style="margin-top:8px">
+          <span style="font-size:12px;color:var(--ui-dim);width:54px">Texto</span>
+          <input type="color" id="cFg" value="#ffffff">
+          <span style="font-size:12px;color:var(--ui-dim);width:54px">Acento</span>
+          <input type="color" id="cAccent" value="#fe7b02">
+        </div>
+        <label style="margin-top:8px"><input type="checkbox" id="cGrad" checked> Fundo em gradiente</label>
+      </div>
+      <div class="field">
+        <label>Tipografia</label>
+        <select id="fKit"></select>
+        <div class="hint">As fontes carregam da internet na 1ª vez. Offline, o editor usa fontes do sistema (visual aproximado).</div>
+      </div>
+      <hr>
+      <div class="field">
+        <label>Marca / @ (rodapé)</label>
+        <input type="text" id="fHandle" placeholder="@seuperfil">
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="fPag" checked> Mostrar número de página (1/N)</label>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="fSeta" checked> Mostrar seta "arraste" (capa/conteúdo)</label>
+      </div>
+      <div class="hint">Estilo é global: vale pra todos os slides do carrossel.</div>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Estado
+   ============================================================ */
+const KITS = {
+  "Sora + Inter":        {head:"Sora",          body:"Inter",            hw:800, bw:500},
+  "Editorial (Playfair)":{head:"Playfair Display",body:"Inter",          hw:900, bw:500},
+  "Impacto (Archivo)":   {head:"Archivo",       body:"Inter",            hw:900, bw:500},
+  "Tech (Space Grotesk)":{head:"Space Grotesk", body:"Inter",            hw:700, bw:500},
+  "Amigável (Poppins)":  {head:"Poppins",       body:"Inter",            hw:700, bw:500},
+  "Clássico (Baskerville)":{head:"Libre Baskerville",body:"Inter",       hw:700, bw:500},
+};
+const PALETTES = [
+  {name:"Expert Dark",  bg:"#1b1b1b", bg2:"#2a2350", fg:"#ffffff", accent:"#fe7b02", grad:true},
+  {name:"Expert Azul",  bg:"#575ecf", bg2:"#3a3fa6", fg:"#ffffff", accent:"#ffd166", grad:true},
+  {name:"Midnight",     bg:"#0d1b2a", bg2:"#1b2838", fg:"#f4f6fb", accent:"#e0b84c", grad:true},
+  {name:"Scale",        bg:"#103a4f", bg2:"#0a2433", fg:"#eafaff", accent:"#2dd4ff", grad:true},
+  {name:"Traction",     bg:"#0a0a0a", bg2:"#101a3a", fg:"#ffffff", accent:"#005afd", grad:true},
+  {name:"Super SDR",    bg:"#0d1526", bg2:"#142c52", fg:"#eaf2ff", accent:"#00d6a4", grad:true},
+  {name:"Creme",        bg:"#fcfbf8", bg2:"#f1ece1", fg:"#1b1b1b", accent:"#fe3f21", grad:false},
+  {name:"Branco limpo", bg:"#ffffff", bg2:"#eef0f4", fg:"#15161c", accent:"#575ecf", grad:false},
+  {name:"Rosa pop",     bg:"#f858bc", bg2:"#a8276f", fg:"#ffffff", accent:"#ffe14d", grad:true},
+];
+
+const state = {
+  fmt: "45",                // 45 = 1080x1350 ; 11 = 1080x1080
+  kit: "Sora + Inter",
+  theme: {...PALETTES[0]},
+  handle: "@seuperfil",
+  showPag: true,
+  showSeta: true,
+  current: 0,
+  slides: [
+    {tipo:"capa", kicker:"", titulo:"O título que para o dedo do seu seguidor", corpo:"", cta:"Arraste →", align:"left"},
+    {tipo:"conteudo", kicker:"PONTO 1", titulo:"Cada slide entrega UMA ideia", corpo:"Não empilhe assunto. Um slide = um conceito. É assim que prende a atenção até o fim.", cta:"", align:"left"},
+    {tipo:"cta", kicker:"", titulo:"Curtiu? Salva e compartilha", corpo:"Me segue pra mais conteúdo como esse.", cta:"Salvar · Seguir", align:"center"},
+  ],
+};
+
+/* ============================================================
+   Util
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const dims = () => state.fmt === "11" ? {w:1080,h:1080} : {w:1080,h:1350};
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200);}
+function curSlide(){return state.slides[state.current];}
+
+async function ensureFonts(){
+  const k = KITS[state.kit];
+  const list = [`${k.hw} 80px "${k.head}"`, `${k.bw} 40px "${k.body}"`, `700 40px "${k.body}"`];
+  try{ await Promise.all(list.map(f=>document.fonts.load(f))); }catch(e){}
+  try{ await document.fonts.ready; }catch(e){}
+}
+
+/* cache de fotos (dataURL -> Image carregada) + pre-carga */
+const IMG_CACHE = {};
+function carregarImg(src){
+  return new Promise(res=>{
+    if(!src) return res(null);
+    if(IMG_CACHE[src]) return res(IMG_CACHE[src]);
+    const im=new Image();
+    im.onload=()=>{ IMG_CACHE[src]=im; res(im); };
+    im.onerror=()=>res(null);
+    im.src=src;
+  });
+}
+async function ensureAssets(){
+  await ensureFonts();
+  await Promise.all(state.slides.filter(s=>s.foto).map(s=>carregarImg(s.foto)));
+}
+
+/* word-wrap em canvas: retorna array de linhas que cabem em maxW */
+function wrap(ctx, text, maxW){
+  const out=[];
+  (text||"").split("\n").forEach(para=>{
+    if(para===""){out.push("");return;}
+    const words=para.split(/\s+/); let line="";
+    for(const w of words){
+      const t=line?line+" "+w:w;
+      if(ctx.measureText(t).width<=maxW || !line){line=t;}
+      else{out.push(line);line=w;}
+    }
+    if(line)out.push(line);
+  });
+  return out;
+}
+
+/* desenha um bloco de texto, encolhendo a fonte até caber em maxLines/altura */
+function drawBlock(ctx, text, x, y, maxW, opt){
+  let size=opt.size, lines, lh;
+  while(size>=opt.min){
+    ctx.font=`${opt.weight} ${size}px "${opt.font}", system-ui, sans-serif`;
+    lines=wrap(ctx,text,maxW);
+    lh=size*opt.lh;
+    if(lines.length*lh<=opt.maxH || size<=opt.min)break;
+    size-=4;
+  }
+  ctx.fillStyle=opt.color;
+  ctx.textBaseline="top";
+  ctx.textAlign=opt.align;
+  const ax = opt.align==="center" ? x+maxW/2 : x;
+  let yy=y;
+  for(const l of lines){ ctx.fillText(l,ax,yy); yy+=lh; }
+  return yy; // bottom y
+}
+
+/* ============================================================
+   Render — coração: mesmo caminho pro preview, thumb e export
+   ============================================================ */
+function renderSlide(canvas, slide, index, total){
+  const {w,h}=dims();
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext("2d");
+  const th=state.theme, kit=KITS[state.kit];
+  const center = slide.align==="center";
+  const foto = slide.foto ? IMG_CACHE[slide.foto] : null;
+  const modo = slide.fotoModo || "fundo";
+
+  // fundo (cor / gradiente)
+  if(th.grad){
+    const g=ctx.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,th.bg); g.addColorStop(1,th.bg2);
+    ctx.fillStyle=g;
+  } else { ctx.fillStyle=th.bg; }
+  ctx.fillRect(0,0,w,h);
+
+  const M=96;                       // margem segura
+  let txtX=M, txtW=w-M*2;           // area de texto (encolhe no modo "lado")
+
+  // foto do slide (embutida como dataURL, ja pre-carregada em IMG_CACHE)
+  if(foto){
+    if(modo==="lado"){
+      const fw=Math.round(w*0.46), fx=w-fw;
+      drawCover(ctx, foto, fx, 0, fw, h);
+      txtW = fx - M - 28;
+    } else {
+      drawCover(ctx, foto, 0, 0, w, h);          // cobre o slide
+      const ov=ctx.createLinearGradient(0,0,0,h); // overlay pra texto legivel
+      ov.addColorStop(0, hexA(th.bg,0.35));
+      ov.addColorStop(0.5, hexA(th.bg,0.55));
+      ov.addColorStop(1, hexA(th.bg,0.92));
+      ctx.fillStyle=ov; ctx.fillRect(0,0,w,h);
+    }
+  }
+
+  let y=M+8;
+
+  // barra de acento (decoração de topo)
+  if(!center){
+    ctx.fillStyle=th.accent;
+    ctx.fillRect(txtX, y, 78, 8);
+    y+=30;
+  } else { y+=4; }
+
+  // kicker
+  if(slide.kicker){
+    ctx.font=`700 30px "${kit.body}", system-ui, sans-serif`;
+    ctx.fillStyle=th.accent;
+    ctx.textBaseline="top";
+    ctx.textAlign=center?"center":"left";
+    const kx=center?(txtX+txtW/2):txtX;
+    ctx.fillText(slide.kicker.toUpperCase(), kx, y);
+    y+=52;
+  }
+
+  const isCapa=slide.tipo==="capa", isCta=slide.tipo==="cta";
+  const titleSize = isCapa?112 : isCta?92 : 78;
+
+  if(isCapa){
+    // capa: título grande ocupa o miolo
+    y = Math.max(y, h*0.30);
+    y = drawBlock(ctx, slide.titulo, txtX, y, txtW,
+        {font:kit.head, weight:kit.hw, size:titleSize, min:48, lh:1.06, maxH:h*0.5, color:th.fg, align:center?"center":"left"});
+    if(slide.corpo){
+      y+=34;
+      drawBlock(ctx, slide.corpo, txtX, y, txtW,
+        {font:kit.body, weight:kit.bw, size:40, min:26, lh:1.35, maxH:h*0.22, color:th.fg, align:center?"center":"left"});
+    }
+  } else {
+    y+=10;
+    y = drawBlock(ctx, slide.titulo, txtX, y, txtW,
+        {font:kit.head, weight:kit.hw, size:titleSize, min:42, lh:1.08, maxH:h*0.42, color:th.fg, align:center?"center":"left"});
+    if(slide.corpo){
+      y+=30;
+      drawBlock(ctx, slide.corpo, txtX, y, txtW,
+        {font:kit.body, weight:kit.bw, size:42, min:24, lh:1.4, maxH:h*0.4, color:hexA(th.fg,.9), align:center?"center":"left"});
+    }
+  }
+
+  // CTA pill (rodapé acima da assinatura)
+  if(slide.cta){
+    ctx.font=`700 34px "${kit.body}", system-ui, sans-serif`;
+    const tw=ctx.measureText(slide.cta).width;
+    const pad=30, ph=68, pw=tw+pad*2;
+    const px = center ? (txtX+(txtW-pw)/2) : txtX;
+    const py = h-M-ph-58;
+    roundRect(ctx, px, py, pw, ph, 34);
+    ctx.fillStyle=th.accent; ctx.fill();
+    ctx.fillStyle=pickInk(th.accent);
+    ctx.textBaseline="middle"; ctx.textAlign="left";
+    ctx.fillText(slide.cta, px+pad, py+ph/2+1);
+  }
+
+  // rodapé: @handle + página
+  ctx.font=`600 28px "${kit.body}", system-ui, sans-serif`;
+  ctx.fillStyle=hexA(th.fg,.65);
+  ctx.textBaseline="alphabetic"; ctx.textAlign="left";
+  if(state.handle) ctx.fillText(state.handle, M, h-M+2);
+  if(state.showPag){
+    ctx.textAlign="right";
+    ctx.fillText(`${index+1}/${total}`, w-M, h-M+2);
+  }
+
+  // seta "arraste" no canto (não no último slide)
+  if(state.showSeta && !isCta && index<total-1){
+    ctx.fillStyle=th.accent;
+    ctx.font=`800 40px "${kit.body}", system-ui, sans-serif`;
+    ctx.textAlign="right"; ctx.textBaseline="middle";
+    ctx.fillText("→", w-M, h*0.5);
+  }
+}
+
+/* desenha a imagem cobrindo (cover) o retângulo dx,dy,dw,dh sem distorcer */
+function drawCover(ctx,img,dx,dy,dw,dh){
+  const ir=img.width/img.height, dr=dw/dh; let sw,sh,sx,sy;
+  if(ir>dr){ sh=img.height; sw=sh*dr; sx=(img.width-sw)/2; sy=0; }
+  else { sw=img.width; sh=sw/dr; sx=0; sy=(img.height-sh)/2; }
+  ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function hexA(hex,a){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);return `rgba(${r},${g},${b},${a})`;}
+function pickInk(hex){const c=hex.replace("#","");const r=parseInt(c.substr(0,2),16),g=parseInt(c.substr(2,2),16),b=parseInt(c.substr(4,2),16);const lum=(0.299*r+0.587*g+0.114*b);return lum>150?"#15161c":"#ffffff";}
+
+/* ============================================================
+   UI render
+   ============================================================ */
+async function renderAll(){
+  await ensureAssets();
+  renderSlide($("#preview"), curSlide(), state.current, state.slides.length);
+  buildThumbs();
+  $("#navLabel").textContent=`${state.current+1} / ${state.slides.length}`;
+  syncInspector();
+}
+function buildThumbs(){
+  const box=$("#thumbs"); box.innerHTML="";
+  state.slides.forEach((s,i)=>{
+    const d=document.createElement("div");
+    d.className="thumb"+(i===state.current?" active":"");
+    const cv=document.createElement("canvas");
+    renderSlide(cv,s,i,state.slides.length);
+    d.appendChild(cv);
+    const n=document.createElement("div");n.className="num";n.textContent=i+1;d.appendChild(n);
+    const del=document.createElement("button");del.className="del";del.textContent="×";
+    del.onclick=(e)=>{e.stopPropagation();removeSlide(i);};
+    d.appendChild(del);
+    d.onclick=()=>{state.current=i;renderAll();};
+    box.appendChild(d);
+  });
+}
+function syncInspector(){
+  const s=curSlide();
+  $("#fKicker").value=s.kicker||"";
+  $("#fTitulo").value=s.titulo||"";
+  $("#fCorpo").value=s.corpo||"";
+  $("#fCta").value=s.cta||"";
+  document.querySelectorAll("#segTipo button").forEach(b=>b.classList.toggle("on",b.dataset.tipo===s.tipo));
+  document.querySelectorAll("#segAlign button").forEach(b=>b.classList.toggle("on",b.dataset.al===(s.align||"left")));
+  document.querySelectorAll("#segFmt button").forEach(b=>b.classList.toggle("on",b.dataset.fmt===state.fmt));
+  $("#cBg").value=state.theme.bg;$("#cBg2").value=state.theme.bg2;$("#cFg").value=state.theme.fg;$("#cAccent").value=state.theme.accent;
+  $("#cGrad").checked=state.theme.grad;
+  $("#fHandle").value=state.handle;$("#fPag").checked=state.showPag;$("#fSeta").checked=state.showSeta;
+  const temFoto=!!s.foto;
+  $("#fotoCtrls").style.display=temFoto?"block":"none";
+  $("#btnFoto").textContent=temFoto?"Trocar foto":"+ Adicionar foto";
+  document.querySelectorAll("#segFotoModo button").forEach(b=>b.classList.toggle("on",b.dataset.fm===(s.fotoModo||"fundo")));
+}
+
+/* ============================================================
+   Eventos
+   ============================================================ */
+function bindText(id,key){$(id).addEventListener("input",e=>{curSlide()[key]=e.target.value;renderAll();});}
+bindText("#fKicker","kicker");bindText("#fTitulo","titulo");bindText("#fCorpo","corpo");bindText("#fCta","cta");
+
+document.querySelectorAll("#segTipo button").forEach(b=>b.onclick=()=>{curSlide().tipo=b.dataset.tipo;renderAll();});
+document.querySelectorAll("#segAlign button").forEach(b=>b.onclick=()=>{curSlide().align=b.dataset.al;renderAll();});
+
+/* foto no slide */
+$("#btnFoto").onclick=()=>$("#fileFoto").click();
+$("#fileFoto").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{curSlide().foto=r.result;if(!curSlide().fotoModo)curSlide().fotoModo="fundo";await carregarImg(r.result);renderAll();};
+  r.readAsDataURL(f);
+  e.target.value="";
+};
+$("#btnFotoRemover").onclick=()=>{curSlide().foto=null;renderAll();};
+document.querySelectorAll("#segFotoModo button").forEach(b=>b.onclick=()=>{curSlide().fotoModo=b.dataset.fm;renderAll();});
+document.querySelectorAll("#segFmt button").forEach(b=>b.onclick=()=>{state.fmt=b.dataset.fmt;renderAll();});
+
+["#cBg|bg","#cBg2|bg2","#cFg|fg","#cAccent|accent"].forEach(p=>{const[id,k]=p.split("|");$(id).addEventListener("input",e=>{state.theme[k]=e.target.value;renderAll();});});
+$("#cGrad").addEventListener("change",e=>{state.theme.grad=e.target.checked;renderAll();});
+$("#fHandle").addEventListener("input",e=>{state.handle=e.target.value;renderAll();});
+$("#fPag").addEventListener("change",e=>{state.showPag=e.target.checked;renderAll();});
+$("#fSeta").addEventListener("change",e=>{state.showSeta=e.target.checked;renderAll();});
+
+$("#navPrev").onclick=()=>{if(state.current>0){state.current--;renderAll();}};
+$("#navNext").onclick=()=>{if(state.current<state.slides.length-1){state.current++;renderAll();}};
+$("#btnAdd").onclick=()=>{state.slides.push({tipo:"conteudo",kicker:"",titulo:"Novo slide",corpo:"",cta:"",align:curSlide().align||"left"});state.current=state.slides.length-1;renderAll();};
+function removeSlide(i){if(state.slides.length<=1){toast("Precisa de ao menos 1 slide");return;}state.slides.splice(i,1);if(state.current>=state.slides.length)state.current=state.slides.length-1;renderAll();}
+
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  $("#tabSlide").style.display=b.dataset.tab==="slide"?"block":"none";
+  $("#tabEstilo").style.display=b.dataset.tab==="estilo"?"block":"none";
+});
+
+document.addEventListener("keydown",e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
+  if(e.key==="ArrowLeft")$("#navPrev").click();
+  if(e.key==="ArrowRight")$("#navNext").click();
+});
+
+/* paletas + kits */
+function buildPalettes(){
+  const box=$("#palettes");box.innerHTML="";
+  PALETTES.forEach(p=>{
+    const d=document.createElement("div");d.className="sw";d.title=p.name;
+    d.style.background=`linear-gradient(135deg,${p.bg},${p.grad?p.bg2:p.bg})`;
+    d.style.boxShadow=`inset 0 0 0 3px ${p.accent}`;
+    d.onclick=()=>{state.theme={...p};renderAll();};
+    box.appendChild(d);
+  });
+}
+function buildKits(){
+  const sel=$("#fKit");sel.innerHTML="";
+  Object.keys(KITS).forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;sel.appendChild(o);});
+  sel.value=state.kit;
+  sel.onchange=()=>{state.kit=sel.value;renderAll();};
+}
+
+/* import/export JSON do projeto */
+$("#btnExportJson").onclick=()=>{
+  const data=JSON.stringify({fmt:state.fmt,kit:state.kit,theme:state.theme,handle:state.handle,showPag:state.showPag,showSeta:state.showSeta,slides:state.slides},null,2);
+  downloadBlob(new Blob([data],{type:"application/json"}),"carrossel-projeto.json");
+};
+$("#btnImport").onclick=()=>$("#fileImport").click();
+$("#fileImport").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{loadProject(JSON.parse(r.result));toast("Projeto carregado");}catch(err){toast("JSON inválido");}};
+  r.readAsText(f);
+};
+function loadProject(o){
+  if(o.fmt)state.fmt=o.fmt;if(o.kit&&KITS[o.kit])state.kit=o.kit;
+  if(o.theme)state.theme={...state.theme,...o.theme};
+  if(typeof o.handle==="string")state.handle=o.handle;
+  if(typeof o.showPag==="boolean")state.showPag=o.showPag;
+  if(typeof o.showSeta==="boolean")state.showSeta=o.showSeta;
+  if(Array.isArray(o.slides)&&o.slides.length)state.slides=o.slides.map(s=>({tipo:s.tipo||"conteudo",kicker:s.kicker||"",titulo:s.titulo||"",corpo:s.corpo||"",cta:s.cta||"",align:s.align||"left",foto:s.foto||null,fotoModo:s.fotoModo||"fundo"}));
+  state.current=0;renderAll();
+}
+// permite injeção externa: window.CARROSSEL = {...projeto...}
+window.loadCarrossel = loadProject;
+
+/* ============================================================
+   Export PNG + ZIP puro (sem dependências)
+   ============================================================ */
+async function exportZip(){
+  await ensureAssets();
+  const total=state.slides.length;
+  const files=[];
+  const off=document.createElement("canvas");
+  for(let i=0;i<total;i++){
+    renderSlide(off,state.slides[i],i,total);
+    const blob=await new Promise(res=>off.toBlob(res,"image/png"));
+    const buf=new Uint8Array(await blob.arrayBuffer());
+    files.push({name:`slide-${String(i+1).padStart(2,"0")}.png`,data:buf});
+  }
+  const zip=makeZip(files);
+  downloadBlob(new Blob([zip],{type:"application/zip"}),"carrossel.zip");
+  toast(`${total} slides exportados`);
+}
+$("#btnZip").onclick=()=>exportZip().catch(e=>toast("Erro no export: "+e.message));
+
+function downloadBlob(blob,name){
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+}
+
+/* ---- mini ZIP (store, sem compressão) com CRC32 ---- */
+const CRC_TABLE=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(buf){let c=0xFFFFFFFF;for(let i=0;i<buf.length;i++)c=CRC_TABLE[(c^buf[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function makeZip(files){
+  const enc=new TextEncoder();
+  const locals=[]; const central=[]; let offset=0;
+  for(const f of files){
+    const nameBuf=enc.encode(f.name);
+    const crc=crc32(f.data); const sz=f.data.length;
+    const lh=new Uint8Array(30+nameBuf.length); const dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0,true);
+    dv.setUint16(8,0,true); dv.setUint16(10,0,true); dv.setUint16(12,0,true);
+    dv.setUint32(14,crc,true); dv.setUint32(18,sz,true); dv.setUint32(22,sz,true);
+    dv.setUint16(26,nameBuf.length,true); dv.setUint16(28,0,true);
+    lh.set(nameBuf,30);
+    locals.push(lh,f.data);
+    const ch=new Uint8Array(46+nameBuf.length); const cd=new DataView(ch.buffer);
+    cd.setUint32(0,0x02014b50,true); cd.setUint16(4,20,true); cd.setUint16(6,20,true);
+    cd.setUint16(8,0,true); cd.setUint16(10,0,true); cd.setUint16(12,0,true); cd.setUint16(14,0,true);
+    cd.setUint32(16,crc,true); cd.setUint32(20,sz,true); cd.setUint32(24,sz,true);
+    cd.setUint16(28,nameBuf.length,true); cd.setUint16(30,0,true); cd.setUint16(32,0,true);
+    cd.setUint16(34,0,true); cd.setUint16(36,0,true); cd.setUint32(38,0,true);
+    cd.setUint32(42,offset,true);
+    ch.set(nameBuf,46);
+    central.push(ch);
+    offset+=lh.length+f.data.length;
+  }
+  const centralSize=central.reduce((a,b)=>a+b.length,0);
+  const eocd=new Uint8Array(22); const ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(4,0,true); ev.setUint16(6,0,true);
+  ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true);
+  ev.setUint32(12,centralSize,true); ev.setUint32(16,offset,true); ev.setUint16(20,0,true);
+  const parts=[...locals,...central,eocd];
+  const totalLen=parts.reduce((a,b)=>a+b.length,0);
+  const out=new Uint8Array(totalLen); let p=0;
+  for(const part of parts){out.set(part,p);p+=part.length;}
+  return out;
+}
+
+/* ============================================================
+   Boot — injeta projeto externo se existir
+   ============================================================ */
+/* API pública: a skill injeta projeto e/ou automatiza o export por aqui */
+window.editorCarrossel={get state(){return state;},loadProject,exportZip,makeZip,renderSlide,crc32};
+
+buildPalettes();buildKits();
+if(window.CARROSSEL){try{loadProject(window.CARROSSEL);}catch(e){renderAll();}} else {renderAll();}
+</script>
+</body>
+</html>
