@@ -1,7 +1,7 @@
 {
   "name": "marketing",
-  "version": "2.3.0",
-  "description": "Skills de marketing, conteudo e trafego da Expert Integrado: producao de reels/video com avatar (criar-reel-v3 com trava de orcamento, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt), carrossel (carrossel-studio), imagem com identidade (imagem), roteiro (criar-script), post de blog GEO na voz do Eric (criar-post-blog), trafego pago Meta Ads (criar-campanha, relatorio-ads), webinario (criar-webinario), pesquisa de conteudo (ig-competitor-research, pauta-semanal, pesquisa-instagram) e tweet print.",
+  "version": "2.4.0",
+  "description": "Skills de marketing, conteudo e trafego da Expert Integrado: orquestracao multi-agente de conteudo (orquestrar-conteudo: site/landing/Instagram com Copywriter+Designer+Revisor em paralelo), producao de reels/video com avatar (criar-reel-v3 com trava de orcamento, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt), carrossel (carrossel-studio), imagem com identidade (imagem), roteiro (criar-script), post de blog GEO na voz do Eric (criar-post-blog), trafego pago Meta Ads (criar-campanha, relatorio-ads), webinario (criar-webinario), pesquisa de conteudo (ig-competitor-research, pauta-semanal, pesquisa-instagram) e tweet print.",
   "author": {
     "name": "Eric Luciano Ferreira",
     "email": "operacoes@expertintegrado.com.br",

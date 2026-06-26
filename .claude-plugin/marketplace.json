@@ -39,8 +39,8 @@
     {
       "name": "marketing",
       "source": "./plugins/marketing",
-      "description": "Skills de marketing, conteudo e trafego: criar-reel-v3, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt, carrossel-studio, imagem, criar-script, criar-post-blog, criar-campanha, relatorio-ads, criar-webinario, ig-competitor-research, pauta-semanal, pesquisa-instagram, tweet-print.",
-      "version": "2.3.0",
+      "description": "Skills de marketing, conteudo e trafego: orquestrar-conteudo, criar-reel-v3, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt, carrossel-studio, imagem, criar-script, criar-post-blog, criar-campanha, relatorio-ads, criar-webinario, ig-competitor-research, pauta-semanal, pesquisa-instagram, tweet-print.",
+      "version": "2.4.0",
       "category": "productivity",
       "tags": [
         "marketing",
