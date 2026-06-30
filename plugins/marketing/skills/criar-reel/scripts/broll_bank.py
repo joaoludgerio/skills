@@ -5,7 +5,7 @@ Banco de B-rolls remoto (GitHub Release) — a skill consulta e baixa só o que 
 Catalogo: bank.json publico (raw GitHub). Cada clip tem id, cat[], desc, res, hd, thumb, url.
 Clips ficam num Release do repo expert-broll-bank (URLs publicas, sem login).
 
-Uso (etapa 6 do criar-reel-v3):
+Uso (etapa 6 do criar-reel):
   python broll_bank.py --list                      # catalogo inteiro
   python broll_bank.py --list --cat servidor       # so categoria
   python broll_bank.py --list --hd                 # so 1080x1920

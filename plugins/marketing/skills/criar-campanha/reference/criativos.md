@@ -1,4 +1,4 @@
-# Criativos — imagens (Nano Banana) e vídeo (criar-reel-v3)
+# Criativos — imagens (Nano Banana) e vídeo (criar-reel)
 
 Padrão da casa: **Nano Banana MCP é o método padrão de imagem** (memória `criativos-html-nao-canva`).
 Canva AI é **proibido**. HTML/CSS+Playwright só como último fallback se o Nano Banana falhar.
@@ -49,14 +49,14 @@ descritivo (ex: `super-sdr_custo-reuniao_1080x1350.png`). Confira o texto render
 
 ---
 
-## Vídeo — skill `criar-reel-v3`
+## Vídeo — skill `criar-reel`
 
-Quando o plano da Fase 1 pedir vídeo, **não reinvente** — chame a skill `criar-reel-v3`, que já produz
+Quando o plano da Fase 1 pedir vídeo, **não reinvente** — chame a skill `criar-reel`, que já produz
 o vídeo do Eric pronto pra postar (roteiro na voz do Eric, fala via ElevenLabs, lip-sync HeyGen,
 B-rolls, legenda amarela queimada).
 
 Como usar:
-1. Passe pra `criar-reel-v3` a **pauta/ângulo** do criativo de vídeo (ex: "custo de um SDR humano vs
+1. Passe pra `criar-reel` a **pauta/ângulo** do criativo de vídeo (ex: "custo de um SDR humano vs
    Super SDR, com o case PSP"), deixando claro que é **anúncio** (CTA de ad: "clique em saiba mais",
    não "comenta").
 2. A skill entrega o `.mp4`. **Copie/mova** o arquivo final pra `campanhas/<...>/criativos/`.

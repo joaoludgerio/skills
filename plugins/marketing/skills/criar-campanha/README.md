@@ -9,7 +9,7 @@ Esta skill assume o papel de "Gestor de Tráfego da Expert Integrado" e leva uma
 - Entende qual dos 4 produtos você quer anunciar e qual o objetivo.
 - Sugere o público, a estrutura (campanha/conjuntos) e o budget, já fazendo a conta de viabilidade (quanto pode custar um lead/venda pra valer a pena).
 - Escreve toda a copy dos anúncios no tom da Expert (texto, título, descrição, CTA).
-- Gera os criativos: imagens (Nano Banana) e, quando faz sentido, vídeo do Eric (via a skill criar-reel-v3).
+- Gera os criativos: imagens (Nano Banana) e, quando faz sentido, vídeo do Eric (via a skill criar-reel).
 - Cria a campanha, os conjuntos, os criativos e os anúncios na conta — tudo pausado.
 - Entrega um relatório com os IDs e os links diretos do Gerenciador.
 
@@ -54,14 +54,14 @@ A skill trabalha em fases e **para em 4 checkpoints** pra você aprovar antes de
 
 - **Meta Ads (MCP oficial do Marketing API)** — cria campanha, conjuntos, criativos e anúncios direto na conta.
 - **Nano Banana (MCP)** — gera as imagens estáticas dos criativos (padrão da casa; Canva AI é proibido).
-- **criar-reel-v3 (skill)** — quando o plano pede vídeo, ela chama essa skill, que entrega o vídeo do Eric pronto (roteiro, voz, lip-sync, B-rolls e legenda).
+- **criar-reel (skill)** — quando o plano pede vídeo, ela chama essa skill, que entrega o vídeo do Eric pronto (roteiro, voz, lip-sync, B-rolls e legenda).
 - **Graph API do Meta** — usada só pra subir a mídia (imagem/vídeo) e obter as referências que o anúncio precisa.
 
 ## Pré-requisitos
 
 - Acesso à conta de anúncios da Expert Integrado no Meta (já configurada no MCP). O MCP tem autenticação própria, então criar a estrutura funciona normalmente.
 - Para **subir mídia** (imagem/vídeo) é usado um **token do Meta que expira a cada 60 dias**. Se ele estiver vencido, a skill avisa e pede pra você renovar (no Gerenciador de Negócios). Sem o token válido, dá pra contornar promovendo um post que já exista no Instagram/Facebook.
-- Os MCPs de Nano Banana e (se for usar vídeo) os da skill criar-reel-v3 precisam estar ativos.
+- Os MCPs de Nano Banana e (se for usar vídeo) os da skill criar-reel precisam estar ativos.
 - Para campanha de **venda direta** (cursos R$97), o pixel/dataset de compra precisa estar configurado na conta pra otimizar pelo evento certo.
 
 > Observação de segurança: o README não traz chaves, tokens nem IDs sensíveis. Esses valores ficam guardados nos arquivos de configuração da skill e nunca devem ser copiados pra cá.

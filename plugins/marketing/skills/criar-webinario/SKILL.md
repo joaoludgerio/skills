@@ -1,6 +1,6 @@
 ---
 name: criar-webinario
-description: Playbook ponta a ponta pra lançar um webinário/live gratuita de tráfego pago da Expert Integrado — da definição do produto até a otimização da próxima edição. Orquestra as skills que já existem (criar-campanha, criar-reel-v3, Nano Banana) e adiciona os passos próprios do funil de webinário: landing page em HTML com teste A/B + pixel, criativos (estático e vídeo), campanha no Meta, sequência de lembretes no WhatsApp, dia da live e análise pós-live. Usar quando o pedido for "cria um webinário", "monta a live", "lança a próxima edição da aula gratuita", "campanha de webinar", ou colar um briefing de live/webinário.
+description: Playbook ponta a ponta pra lançar um webinário/live gratuita de tráfego pago da Expert Integrado — da definição do produto até a otimização da próxima edição. Orquestra as skills que já existem (criar-campanha, criar-reel, Nano Banana) e adiciona os passos próprios do funil de webinário: landing page em HTML com teste A/B + pixel, criativos (estático e vídeo), campanha no Meta, sequência de lembretes no WhatsApp, dia da live e análise pós-live. Usar quando o pedido for "cria um webinário", "monta a live", "lança a próxima edição da aula gratuita", "campanha de webinar", ou colar um briefing de live/webinário.
 ---
 
 # Criar Webinário — funil completo de live gratuita (Expert Integrado)
@@ -59,7 +59,7 @@ Ler `references/pixel-e-tracking.md` (lição cara — leitura obrigatória).
 
 ### Fase 4 — Criativos (estático + vídeo)
 Ler `references/criativo-formula.md`.
-- **Vídeos:** usar a skill `criar-reel-v3` (voz Eric no ElevenLabs + lip-sync HeyGen + B-roll do banco).
+- **Vídeos:** usar a skill `criar-reel` (voz Eric no ElevenLabs + lip-sync HeyGen + B-roll do banco).
   Roteiros seguem a fórmula: **abrir com cena concreta** de dor operacional repetitiva (não pergunta
   abstrata), régua de ICP na fala ("mais de vinte funcionários"), **CTA de ad** ("o link tá aqui
   embaixo" — nunca "comenta", isso é orgânico).
@@ -103,16 +103,16 @@ Ler `references/funil-e-metricas.md`. Montar o relatório do funil:
 ## Saídas (tudo na pasta do webinário)
 - `brief.md` — definição (Fase 1).
 - `lp-a.html`, `lp-b.html` — landing pages pro deploy.
-- `criativos/` — vídeos (criar-reel-v3) + estáticos (Nano Banana).
+- `criativos/` — vídeos (criar-reel) + estáticos (Nano Banana).
 - Campanha pausada no Meta (link no chat).
 - `lembretes.md` — a sequência de WhatsApp pronta pra disparar.
 - `analise-pos-live.md` — relatório do funil + plano da próxima edição.
 
 ## Skills e MCPs que esta skill usa
-- `criar-reel-v3` (vídeos), Nano Banana (estáticos), `criar-campanha` (campanha base).
+- `criar-reel` (vídeos), Nano Banana (estáticos), `criar-campanha` (campanha base).
 - MCPs: Meta Ads (`ads_*`), WhatsApp (`whatsapp_*`), biblioteca/plataforma de inscritos.
 
 ## Notas
-- Tudo na voz do Eric (`criar-reel-v3/references/voz-eric.md`): humano, oral, específico — nunca IA/corporativo.
+- Tudo na voz do Eric (`criar-reel/references/voz-eric.md`): humano, oral, específico — nunca IA/corporativo.
 - Nunca inventar case/número. Conferir antes (regra de fato do `voz-eric.md`).
 - CTA de **ad** ≠ CTA orgânico. Ad = aponta link. Orgânico = "comenta X".

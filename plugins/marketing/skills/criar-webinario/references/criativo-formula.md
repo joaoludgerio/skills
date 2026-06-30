@@ -18,14 +18,14 @@ de pergunta filosófica nos 3 primeiros segundos (88% rolam o feed em 3s — o g
 5. **CTA de AD:** "o link pra se inscrever na próxima edição tá aqui embaixo." NUNCA "comenta X" (isso é
    orgânico). Ad aponta link.
 
-## Regras de voz (resumo — detalhe em criar-reel-v3/references/voz-eric.md)
+## Regras de voz (resumo — detalhe em criar-reel/references/voz-eric.md)
 - Humano, oral, específico. Parece alguém falando no celular, não copywriter/IA/corporativo.
 - Nunca frases fragmentadas com ponto ("Sprint IA. Três dias."). Frases inteiras conectadas.
 - Sem buzzword (revolucionário, escalar, otimizar, destravar...). Você/seu (Eric é paulista, nunca "tu").
 - Nunca inventar case ou número. Conferir antes.
 
 ## Produção
-- **Vídeo:** skill `criar-reel-v3` (ElevenLabs voz Eric + lip-sync HeyGen + B-roll do banco). Escrever
+- **Vídeo:** skill `criar-reel` (ElevenLabs voz Eric + lip-sync HeyGen + B-roll do banco). Escrever
   `cenas.txt` (1-2 frases/linha). Trocar "IA" por "inteligência artificial" no texto do TTS (senão lê
   errado); a legenda na tela mostra "IA". Termos em inglês: grafia fonética.
 - **Estático:** Nano Banana (`gemini_generate_image`, modelo pro). Testar 1 estático por edição

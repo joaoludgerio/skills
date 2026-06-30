@@ -1,11 +1,11 @@
 ---
-name: criar-reel-v3
-description: "Produz um Reel do Instagram PRONTO PRA POSTAR de ponta a ponta na voz do Eric (Expert Integrado): entende a pauta, confere os fatos, escreve o roteiro, gera a FALA no ElevenLabs (voz Eric Profissional) em blocos de até 20s e faz só o LIP-SYNC no HeyGen (Avatar V, audio_asset_id) — fala a US$4/min em vez de US$10-11. B-rolls com GPT Image 2 (imagens) + Kling direto (vídeo, Higgsfield como fallback), composição, legenda amarela, thumb e página de CTA. VERSAO 3 — a versão padrão de produção (validada 11/06/2026). Usar quando o Eric pedir 'cria um reel v3', 'reel com elevenlabs', 'reel barato', ou qualquer pedido de reel sem versão especificada a partir de agora."
+name: criar-reel
+description: "Produz um Reel do Instagram PRONTO PRA POSTAR de ponta a ponta na voz do Eric (Expert Integrado): entende a pauta, confere os fatos, escreve o roteiro, gera a FALA no ElevenLabs (voz Eric Profissional) em blocos de até 20s e faz só o LIP-SYNC no HeyGen (Avatar V, audio_asset_id) — fala a US$4/min em vez de US$10-11. B-rolls com GPT Image 2 (imagens) + Kling direto (vídeo, Higgsfield como fallback), composição, legenda amarela, thumb e página de CTA. Versão padrão de produção (validada 11/06/2026). Usar quando o Eric pedir 'cria um reel', 'reel com elevenlabs', 'reel barato', ou qualquer pedido de reel."
 argument-hint: "[tema | url | repo | video-gravado.mp4] [--clips N] [--sem-thumb] [--sem-broll] [--manual] [--block-seconds N]"
 allowed-tools: Read, Write, Edit, Bash, WebFetch, WebSearch, Glob
 ---
 
-# Criar Reel v3 (Eric / Expert Integrado) — ElevenLabs + HeyGen lip-sync
+# Criar Reel (Eric / Expert Integrado) — ElevenLabs + HeyGen lip-sync
 
 > **STATUS: validado em 11/06/2026** (teste reel-quanto-custa-a-hora, blocos OK, voz OK,
 > emenda OK). A diferença pra v2 é SÓ a etapa 3a (fala). Objetivo: derrubar o custo do

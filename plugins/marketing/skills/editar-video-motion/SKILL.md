@@ -16,7 +16,7 @@ pessoa num quadradinho (PiP) com o motion tomando a tela. Renderiza em qualquer 
 > crua → 3min editado com Mentoria + AI Innovation Lab + CTA). É a generalização daquele fluxo.
 
 **O vídeo gravado é a BASE.** A gente NÃO gera avatar nem TTS aqui — usa a fala real da pessoa.
-(Se a pessoa quiser avatar/voz sintética, isso é a `criar-reel-v3`, não esta skill.)
+(Se a pessoa quiser avatar/voz sintética, isso é a `criar-reel`, não esta skill.)
 
 ## Quando usar
 - "Edita esse vídeo", "bota motion nesse vídeo", "transforma essa gravação em peça final"

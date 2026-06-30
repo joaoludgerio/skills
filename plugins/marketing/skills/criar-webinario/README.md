@@ -7,7 +7,7 @@ Documenta e executa o processo ponta a ponta de um webinário de tráfego pago �
 a otimização da próxima edição. Foi escrita a partir da 1ª edição real (live "Imposto Invisível",
 jun/2026), então cada fase já vem com os **aprendizados que custaram caro** (o erro de pixel que inflou
 os leads, a fórmula de criativo que converteu, o que mais derruba presença). Orquestra skills que já
-existem (`criar-campanha`, `criar-reel-v3`, Nano Banana) e adiciona os passos próprios do funil.
+existem (`criar-campanha`, `criar-reel`, Nano Banana) e adiciona os passos próprios do funil.
 
 ## Quando usar
 - "cria um webinário" / "monta a live"
@@ -24,7 +24,7 @@ existem (`criar-campanha`, `criar-reel-v3`, Nano Banana) e adiciona os passos pr
 ## O que ela entrega (tudo na pasta do webinário)
 - `brief.md` — a definição travada.
 - `lp-a.html` e `lp-b.html` — duas landing pages pro **teste A/B** (geradas a partir de `templates/lp.html`, mudam só o headline), com pixel; + `confirmacao.html`.
-- `criativos/` — vídeos (via `criar-reel-v3`) + estáticos (Nano Banana).
+- `criativos/` — vídeos (via `criar-reel`) + estáticos (Nano Banana).
 - Campanha no Meta criada e **PAUSADA** (você revisa e dá play).
 - `lembretes.md` — sequência de 4 toques no WhatsApp pronta.
 - `analise-pos-live.md` — relatório do funil + plano da próxima edição.
@@ -41,7 +41,7 @@ existem (`criar-campanha`, `criar-reel-v3`, Nano Banana) e adiciona os passos pr
 8. **Pós-live** — relatório do funil e scripts da próxima edição.
 
 ## Integrações e ferramentas
-- Skills: `criar-reel-v3` (vídeos), `criar-campanha` (campanha base), Nano Banana (estáticos).
+- Skills: `criar-reel` (vídeos), `criar-campanha` (campanha base), Nano Banana (estáticos).
 - MCPs: **Meta Ads** (`ads_*`), **WhatsApp** (`whatsapp_*`), e a plataforma de inscritos.
 - Hospedagem da LP: Cloudflare Pages ou Vercel.
 

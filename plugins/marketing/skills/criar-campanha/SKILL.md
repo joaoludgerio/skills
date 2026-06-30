@@ -1,5 +1,5 @@
 ---
-description: "Cria uma campanha de anúncio pago de ponta a ponta para a Expert Integrado no Meta Ads: entende o produto, sugere público, define estrutura e budget, escreve toda a copy, gera os criativos (imagens via Nano Banana + vídeo do Eric via criar-reel-v3) e PUBLICA a campanha PAUSADA na conta via MCP, pronta pra você revisar e dar play. Usar quando o João pedir 'cria uma campanha', 'monta um anúncio do [Super SDR / mentoria / curso / agentes de IA]', 'campanha de tráfego pago', 'sobe uma campanha no Meta', 'quero anunciar o [produto]', ou colar um briefing de campanha."
+description: "Cria uma campanha de anúncio pago de ponta a ponta para a Expert Integrado no Meta Ads: entende o produto, sugere público, define estrutura e budget, escreve toda a copy, gera os criativos (imagens via Nano Banana + vídeo do Eric via criar-reel) e PUBLICA a campanha PAUSADA na conta via MCP, pronta pra você revisar e dar play. Usar quando o João pedir 'cria uma campanha', 'monta um anúncio do [Super SDR / mentoria / curso / agentes de IA]', 'campanha de tráfego pago', 'sobe uma campanha no Meta', 'quero anunciar o [produto]', ou colar um briefing de campanha."
 command: "criar-campanha"
 ---
 
@@ -95,7 +95,7 @@ Siga `reference/criativos.md`.
 
 - **Imagens estáticas:** Nano Banana (`mcp__nanobanana-mcp__gemini_generate_image`), padrão da casa.
   Prompt de 5 componentes, texto da peça em **português acentuado correto**. Salve em `criativos/`.
-- **Vídeo (quando o plano pedir):** chame a skill `criar-reel-v3` com a pauta/ângulo do criativo de
+- **Vídeo (quando o plano pedir):** chame a skill `criar-reel` com a pauta/ângulo do criativo de
   vídeo. Ela entrega o .mp4 do Eric pronto. Copie o resultado pra `criativos/`.
 - Respeite as specs do Meta (1080x1080 ou 1080x1350 feed; 1080x1920 stories/reels; vídeo 30-60s,
   legenda queimada, gancho nos 3 primeiros segundos).

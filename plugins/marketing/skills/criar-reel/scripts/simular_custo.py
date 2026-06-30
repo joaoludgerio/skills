@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simulador de custo do reel (criar-reel-v3) -- roda ANTES de gastar credito.
+"""Simulador de custo do reel (criar-reel) -- roda ANTES de gastar credito.
 
 Estima o custo do video com os precos REAIS que conhecemos (HeyGen lip-sync +
 ElevenLabs + imagens) e marca o Kling como "a confirmar" -- o saldo de API do
@@ -95,7 +95,7 @@ def main():
 
     L = "=" * 66
     print(L)
-    print("SIMULACAO DE CUSTO  --  criar-reel-v3")
+    print("SIMULACAO DE CUSTO  --  criar-reel")
     print(L)
     print(f"Roteiro: {chars} caracteres   duracao estimada: {seg:.1f}s ({minutos:.2f} min)")
     print(f"HeyGen: {args.engine}/{args.modo} (lip-sync)  |  Imagens: {args.imagens}  |  cambio R${cambio:.2f}/US$")

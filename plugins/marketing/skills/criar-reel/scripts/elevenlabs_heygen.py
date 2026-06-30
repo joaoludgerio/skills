@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ElevenLabs TTS -> HeyGen lip-sync runner (Expert Integrado / criar-reel-v3).
+"""ElevenLabs TTS -> HeyGen lip-sync runner (Expert Integrado / criar-reel).
 
 POR QUE EXISTE: gerar a fala cena-a-cena no HeyGen (TTS interno) custa ~US$10-11
 por video de 1 min. Aqui o audio inteiro sai do ElevenLabs em BLOCOS grandes
@@ -166,7 +166,7 @@ def main():
     ap.add_argument("--avatar", default=AVATAR_ERIC_2026)
     ap.add_argument("--eleven-voice", default=VOICE_ELEVEN_ERIC)
     ap.add_argument("--bg", default=GREEN)
-    ap.add_argument("--title", default="criar-reel-v3")
+    ap.add_argument("--title", default="criar-reel")
     ap.add_argument("--threshold", type=float, default=0.5)
     ap.add_argument("--so-audio", action="store_true",
                     help="gera e valida so os audios (nao gasta credito HeyGen)")

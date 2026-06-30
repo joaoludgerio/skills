@@ -1,6 +1,6 @@
 # SETUP — instruções de instalação (escritas pra VOCÊ, Claude)
 
-Você (Claude Code) está instalando a skill **criar-reel-v3** na máquina de um usuário novo.
+Você (Claude Code) está instalando a skill **criar-reel** na máquina de um usuário novo.
 Esta skill foi construída originalmente pro fluxo do Eric (Expert Integrado) — sua missão é
 adaptá-la pra ESTE usuário: dependências, chaves, avatar, voz e tom. Siga as fases na ordem,
 **valide cada uma antes de seguir**, e não gaste crédito de API do usuário sem avisar antes.

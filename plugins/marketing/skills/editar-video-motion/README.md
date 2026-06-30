@@ -12,7 +12,7 @@ Transforma uma gravação crua (uma pessoa falando pra câmera, com erros, retak
 - "Faz a versão 9x16 / vertical / Stories desse vídeo"
 - Quando você manda um `.mp4` gravado (alguém falando pra câmera) pedindo o vídeo pronto
 
-(Se a ideia for usar avatar ou voz sintética em vez da pessoa real, isso é a skill `criar-reel-v3`, não esta.)
+(Se a ideia for usar avatar ou voz sintética em vez da pessoa real, isso é a skill `criar-reel`, não esta.)
 
 ## O que você precisa dar
 - O **vídeo gravado** (.mp4) — é a base de tudo.

@@ -1,4 +1,4 @@
-# /criar-reel-v3 — Reel de Instagram pronto pra postar, com o avatar de IA do Eric
+# /criar-reel — Reel de Instagram pronto pra postar, com o avatar de IA do Eric
 
 > Você dá o tema, a skill devolve o Reel completo: roteiro, vídeo do avatar falando, B-rolls, legenda na tela, thumb e a página do CTA — tudo pronto pra publicar.
 
