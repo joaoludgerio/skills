@@ -67,17 +67,6 @@
         "email",
         "onboarding"
       ]
-    },
-    {
-      "name": "setup",
-      "source": "./plugins/setup",
-      "description": "Skills de setup tecnico: telegram-setup.",
-      "version": "2.0.1",
-      "category": "productivity",
-      "tags": [
-        "setup",
-        "telegram"
-      ]
     }
   ]
 }
