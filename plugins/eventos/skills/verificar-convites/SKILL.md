@@ -29,7 +29,7 @@ mcp__expert-integrado__list_participantes(evento_id=...)
 ```
 Filtrar pelo `convidado_por` desejado (ex: "Eric Luciano") e re-verificar TODOS os status, não só `convite_enviado`/`em_avaliacao`. Já houve caso de status errado (`recusou` que na verdade era `aceitou_convite`) — o skill precisa varrer tudo pra detectar inconsistências.
 
-Auto-confirmação por botão (`status_presenca = "confirmado"` sem mensagem na conversa) também entra na verificação.
+**ATENÇÃO:** `status_presenca = "confirmado"` é o DEFAULT de cadastro do sistema — todo participante nasce assim. NÃO é sinal de auto-confirmação. Confirmação real por botão aparece no `status` do convite (`confirmado`), não no `status_presenca`.
 
 ### Passo 2: Para cada participante, ler conversa no WhatsApp
 ```
@@ -49,6 +49,7 @@ Analisar as últimas mensagens **do convidado** (não as minhas):
 |---------------|--------|
 | **confirmado** | "vou", "confirmo", "tô dentro", "beleza", "pode ser", "vamos sim", apertou botão E não recusou depois |
 | **recusado** | "não consigo", "não vou", "não dá", "obrigado mas...", "tenho outro compromisso", "fica pra próxima" |
+| **escolheu_dia** | Em edição com 2 datas (ex: 28/29 jul), respondeu qual dia prefere ("28", "dia 29", "pode ser terça") — **executar o fluxo PÓS-ESCOLHA da skill `convidar-evento`**: mover pro evento do dia certo se preciso, `gerar_convite_pdf`, enviar PDF + msg do botão, status → `aceitou_convite` |
 | **sem_resposta** | Não respondeu nada desde o disparo |
 | **em_avaliacao** | Fez pergunta, pediu detalhes, está conversando mas sem decisão final, "acho que dá", "vou tentar", logística pendente — **atualizar status para `em_avaliacao` no MCP e reportar pro Eric responder** |
 
@@ -196,7 +197,7 @@ Ao varrer respostas, pra cada conversa decidir se o ciclo está aberto ou fechad
 1. **NUNCA responder automaticamente** ao convidado — apenas ler, classificar e SUGERIR resposta pro Eric (Eric envia)
 2. **Em caso de dúvida na classificação**, marcar como `em_avaliacao` e pedir ao Eric
 3. **Respeitar tom do convidado** — se a pessoa está negociando data/detalhes, NÃO é recusa
-4. **Confirmação por botão sem mensagem**: se o sistema marcou `status_presenca = confirmado` automaticamente mas a pessoa não escreveu nada, reportar como "auto-confirmou (precisa validação)"
+4. **Confirmação por botão sem mensagem**: se o `status` do convite mudou pra `confirmado` via botão do PDF mas a pessoa não escreveu nada, reportar como "auto-confirmou (precisa validação)". NÃO usar `status_presenca = confirmado` como sinal — é default de cadastro (vale pra todo mundo)
 5. **Paralelizar leituras** quando possível (múltiplos agents)
 6. **Não alterar status_presenca se já estava como `confirmado` via botão** sem reação do usuário — apenas reportar
 7. **Acentuação correta** em qualquer texto que for mostrado ao Eric
