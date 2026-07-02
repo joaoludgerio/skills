@@ -6,7 +6,7 @@
 
 Olha os perfis de concorrentes (ou referências) que você indicar, pega os posts que mais performaram nos últimos dias, transcreve os Reels, analisa o visual de cada post e monta um **relatório HTML** organizado. O objetivo é simples: descobrir quais tópicos, formatos e ganchos já estão funcionando no seu nicho para você copiar/adaptar nas suas próprias publicações — em vez de chutar pauta.
 
-Em vez de comparar curtidas brutas, a skill usa um **outlier score**: o quanto cada post superou a média daquele próprio perfil. Assim, um post que explodiu num perfil pequeno aparece no topo mesmo tendo menos curtidas que um post mediano de um perfil grande.
+Em vez de comparar curtidas brutas, a skill usa um **outlier score**: o quanto cada post superou a mediana daquele próprio perfil. Assim, um post que explodiu num perfil pequeno aparece no topo mesmo tendo menos curtidas que um post mediano de um perfil grande.
 
 ## Quando usar
 
@@ -62,7 +62,7 @@ No fim, a skill resume os 3 tópicos/formatos que mais se repetem e que valem a 
 
 - **Python 3** instalado.
 - **FFmpeg** disponível no PATH.
-- **Bibliotecas Python:** `openai-whisper` e `requests` (instalação: `pip install -U openai-whisper requests`).
+- **Bibliotecas Python:** `openai-whisper` (instalação: `pip install -U openai-whisper`).
 - **Token do Apify** configurado na variável de ambiente `APIFY_TOKEN` (crie a conta gratuita no Apify e gere o token nas configurações de API). *Não há nenhuma chave salva neste repositório — você precisa configurar a sua.*
 
 > **Custo:** a coleta no Apify sai por volta de US$ 0,10–0,15 por pesquisa, o que cabe no plano gratuito de US$ 5/mês. O Whisper roda local, de graça. Na prática, o único custo recorrente é a assinatura do Claude.

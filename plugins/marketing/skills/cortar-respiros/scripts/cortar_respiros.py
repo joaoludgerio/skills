@@ -17,6 +17,11 @@ Requer: auto-editor (pip install auto-editor) e ffmpeg/ffprobe no PATH.
 """
 import sys, os, subprocess
 
+# Console do Windows pode estar em cp1252 quando pipado: forca UTF-8 pra nao
+# estourar UnicodeEncodeError nas mensagens com acento.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def duration(path):
     r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -61,15 +66,19 @@ def process(src, margin, threshold, explicit_out, orig_dur):
     run_autoeditor(src, out, margin, threshold)
     d = duration(out)
     cut = (orig_dur - d) if (orig_dur and d) else None
-    pct = (cut / orig_dur * 100) if (cut and orig_dur) else None
-    print(f"   {os.path.basename(out)}  ->  {mmss(d)}  "
-          f"(cortou {cut:.1f}s, {pct:.0f}%)" if cut is not None else f"   {out}")
+    if cut is not None:
+        pct = (cut / orig_dur * 100) if orig_dur else 0.0
+        print(f"   {os.path.basename(out)}  ->  {mmss(d)}  (cortou {cut:.1f}s, {pct:.0f}%)")
+    else:
+        print(f"   {out}")
     return out
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.exit("usage: python cortar_respiros.py <video> [--margin 0.2] [--both] [--threshold N] [--out f.mp4]")
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__)
+        sys.exit(0 if len(sys.argv) >= 2 else
+                 "usage: python cortar_respiros.py <video> [--margin 0.2] [--both] [--threshold N] [--out f.mp4]")
     src = sys.argv[1]
     args = sys.argv[2:]
     if not os.path.exists(src):

@@ -21,10 +21,9 @@ def find_key():
         if os.path.exists(c):
             for line in open(c, encoding="utf-8"):
                 line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                val = line.split("=", 1)[1] if "=" in line else line
-                return val.strip().strip('"').strip("'")
+                if line.startswith("ELEVENLABS_API_KEY="):
+                    val = line.split("=", 1)[1]
+                    return val.strip().strip('"').strip("'")
     sys.exit("ERRO: chave ElevenLabs nao encontrada (ELEVENLABS_API_KEY ou elevenlabs.env)")
 
 def main():
@@ -37,9 +36,13 @@ def main():
     # se for video, extrai audio mp3 (e guarda como <base>-audio.mp3)
     ext = os.path.splitext(inp)[1].lower()
     if ext in (".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"):
-        audio = os.path.splitext(os.path.basename(inp))[0] + "-audio.mp3"
-        subprocess.run(["ffmpeg", "-y", "-i", inp, "-vn", "-codec:a", "libmp3lame",
-                        "-q:a", "2", audio], capture_output=True)
+        # grava o mp3 ao lado do arquivo de input (mesma pasta), nao no CWD
+        audio = os.path.splitext(inp)[0] + "-audio.mp3"
+        r_ff = subprocess.run(["ffmpeg", "-y", "-i", inp, "-vn", "-codec:a", "libmp3lame",
+                               "-q:a", "2", audio], capture_output=True, text=True)
+        if r_ff.returncode != 0:
+            print((r_ff.stderr or "")[-800:], file=sys.stderr)
+            sys.exit(f"ERRO: ffmpeg falhou ao extrair o audio de {inp} (returncode {r_ff.returncode}). Veja o stderr acima.")
         print("audio cru ->", audio)
     else:
         audio = inp

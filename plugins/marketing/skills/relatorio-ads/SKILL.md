@@ -91,7 +91,7 @@ Formato (ajuste à vontade, mas mantenha enxuto e escaneável — é pra ler no 
 📊 RELATÓRIO META ADS — Super SDR · <DD/MM> · últimos 7 dias
 
 💰 Gasto 7d: R$<x>   ·   hoje: R$<y>
-🎯 Resultados: <n> conversas   ·   CPL médio: R$<z>  (meta < R$8)
+🎯 Resultados: <n> conversas   ·   CPL médio: R$<z>  (meta: ver tabela por produto em reference/metas-cpl.md)
 📈 CTR médio: <x>%   ·   Freq. média: <y>
 
 🏆 Melhor: <anúncio> — CPL R$<x>, CTR <y>%

@@ -63,9 +63,11 @@ def cmd_get(bank, ids, out):
     os.makedirs(out, exist_ok=True)
     missing = [i for i in ids if i not in by]
     if missing:
-        print("IDs nao encontrados no banco:", ", ".join(missing), file=sys.stderr)
+        # Abortar: seguir renumerando deslocaria todo o mapeamento trecho -> clip-NN.mp4
+        sys.exit("IDs nao encontrados no banco: " + ", ".join(missing)
+                 + " (confira com --list; nenhum clip foi baixado)")
     n = 0
-    for i, cid in enumerate([x for x in ids if x in by], 1):
+    for i, cid in enumerate(ids, 1):
         dest = os.path.join(out, f"clip-{i:02d}.mp4")
         sz = download_cached(by[cid]["url"], dest)
         print(f"clip-{i:02d}.mp4 <- {cid} ({sz//1024} KB)")

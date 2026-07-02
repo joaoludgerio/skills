@@ -34,6 +34,9 @@ The env file must contain:
 """
 import sys, os, time, json, base64, hmac, hashlib, requests
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 HOSTS = ["https://api.klingai.com", "https://api-singapore.klingai.com"]
 DEFAULT_ENV = r"C:\MCPs\kling.env"
 DEFAULT_NEG = ("text, letters, words, captions, watermark, logo, brand name, "
@@ -98,8 +101,25 @@ def poll(host, ak, sk, task_id, timeout_s=600):
     t0 = time.time()
     while time.time() - t0 < timeout_s:
         r = requests.get(url, headers={"Authorization": "Bearer " + make_token(ak, sk)}, timeout=30)
-        data = r.json().get("data", {})
+        j = r.json()
+        code = j.get("code")
+        if code is not None and code != 0:
+            # token expirou / erro de auth no meio do poll -- abortar cedo com a mensagem
+            # real em vez de ficar imprimindo status vazio ate o timeout de 10 min.
+            msg = j.get("message", "")
+            if code == 1102:
+                raise RuntimeError(f"Kling code=1102: sem saldo na conta. Compre um resource pack "
+                                    f"no painel Kling antes de tentar de novo. ({msg})")
+            if "risk control" in msg.lower() or "risk" in msg.lower() and "control" in msg.lower():
+                raise RuntimeError(f"Kling risk control (moderacao): imagem barrada. Ajuste a imagem "
+                                    f"(ex: vestir figuras nuas) e tente de novo. ({msg})")
+            raise RuntimeError(f"Kling code={code}: {msg or j}")
+        data = j.get("data", {})
         st = data.get("task_status")
+        msg = data.get("task_status_msg", "")
+        if msg and ("risk control" in msg.lower() or ("risk" in msg.lower() and "control" in msg.lower())):
+            raise RuntimeError(f"Kling risk control (moderacao): imagem barrada. Ajuste a imagem "
+                                f"(ex: vestir figuras nuas) e tente de novo. ({msg})")
         print(f"   ...status={st} ({int(time.time()-t0)}s)", flush=True)
         if st == "succeed":
             return data["task_result"]["videos"][0]["url"]

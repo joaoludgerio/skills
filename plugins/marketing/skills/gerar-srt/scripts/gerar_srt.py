@@ -18,13 +18,15 @@ Requer: openai-whisper instalado e ffmpeg no PATH.
 """
 import sys, os, re, shutil, subprocess
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Padrão de legenda curta: nº máx. de palavras por segmento na tela (estilo Reels).
 WORDS_PER_LINE = 4
 
 # Correções de alta confiança (substituição por palavra inteira, case-insensitive).
 # Só entram aqui erros que o Whisper comete de forma consistente no nicho do Eric.
 CORRECTIONS = [
-    (r"\bclou?d\b", "Claude"),       # "cloud"/"clod" -> Claude
     (r"\bclaud[ie]?\b", "Claude"),   # "claudi"/"claude"/"claud" -> Claude
     (r"\bcl[áa]udi?o\b", "Claude"),  # "Cláudio" -> Claude (TTS fala CLAUDI, ASR ouve Cláudio)
     (r"\bi[áà]\b", "IA"),            # "iá" -> IA (com acento nunca é o verbo "ia")
@@ -36,11 +38,13 @@ CORRECTIONS = [
     (r"\bpdf\b", "PDF"),
     (r"\bapi\b", "API"),
 ]
-# Obs: "ia" NÃO entra aqui — é também o verbo ("ele ia fazer"); deixar pro Whisper/revisão.
+# Obs: "ia" NÃO entra aqui, é também o verbo ("ele ia fazer"); deixar pro Whisper/revisão.
 
-# Termos que dependem de contexto — NÃO corrigir automático, só sinalizar.
-REVIEW_TERMS = ["markdown", "markitdown", "mark it down", "fable", "opus", "anthropic",
-                "expert integrado", "nano banana", "kling"]
+# Termos que dependem de contexto, NÃO corrigir automático, só sinalizar.
+# "cloud" fica aqui de propósito: quase sempre é o Whisper ouvindo "Claude", mas
+# "Google Cloud"/"cloud computing" são legítimos no nicho, decidir olhando o contexto.
+REVIEW_TERMS = ["cloud", "clod", "markdown", "markitdown", "mark it down", "fable", "opus",
+                "anthropic", "expert integrado", "nano banana", "kling"]
 
 
 def run_whisper(video, model, lang, out_dir, words):
@@ -67,15 +71,28 @@ def apply_corrections(srt):
     text = open(srt, encoding="utf-8").read()
     n = 0
     for pat, repl in CORRECTIONS:
-        text, c = re.subn(pat, repl, text, flags=re.IGNORECASE)
-        n += c
+        hits = re.findall(pat, text, flags=re.IGNORECASE)
+        if hits:
+            text = re.sub(pat, repl, text, flags=re.IGNORECASE)
+            n += len(hits)
+            uniq = sorted({h if isinstance(h, str) else h[0] for h in hits})
+            print(f"   corrigido: {', '.join(uniq)} -> {repl} ({len(hits)}x)", flush=True)
     open(srt, "w", encoding="utf-8").write(text)
     return n, text
 
 
 def flag_review(text):
-    low = text.lower()
-    found = [t for t in REVIEW_TERMS if t in low]
+    """Retorna [(termo, [nºs dos blocos SRT])] pra revisão apontar direto no bloco."""
+    found = []
+    blocks = re.split(r"\n\s*\n", text.strip())
+    for t in REVIEW_TERMS:
+        blk_nums = []
+        for b in blocks:
+            if t in b.lower():
+                first = b.strip().splitlines()[0].strip()
+                blk_nums.append(first if first.isdigit() else "?")
+        if blk_nums:
+            found.append((t, blk_nums))
     return found
 
 
@@ -100,10 +117,10 @@ def main():
     review = flag_review(text)
     print(f"\nSRT pronto: {srt}")
     if review:
-        print("REVISAR (termos sensíveis ao contexto — checar grafia/uso no .srt):")
-        for t in review:
-            print(f"   - {t}")
-    print("\nLembrete: 'Markdown' (formato) e 'MarkItDown' (ferramenta) são diferentes — confira qual é cada um.")
+        print("REVISAR (termos sensíveis ao contexto, checar grafia/uso no .srt):")
+        for t, blks in review:
+            print(f"   - {t} (bloco{'s' if len(blks) > 1 else ''} {', '.join(blks)})")
+    print("\nLembrete: 'Markdown' (formato) e 'MarkItDown' (ferramenta) são diferentes, confira qual é cada um.")
 
 
 if __name__ == "__main__":

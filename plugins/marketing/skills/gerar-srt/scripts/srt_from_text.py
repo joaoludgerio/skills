@@ -12,10 +12,16 @@ segmentos.txt: um segmento de legenda por linha (linhas em branco são ignoradas
 """
 import sys, os
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def fmt(t):
-    h = int(t // 3600); m = int((t % 3600) // 60); s = int(t % 60)
-    ms = int(round((t - int(t)) * 1000))
+    # Tudo em ms inteiros: arredondar fracao isolada gerava ",1000" (SRT invalido).
+    total_ms = round(t * 1000)
+    h, r = divmod(total_ms, 3600000)
+    m, r = divmod(r, 60000)
+    s, ms = divmod(r, 1000)
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
@@ -29,8 +35,12 @@ def main():
         if a == "--duration" and i + 1 < len(args): dur = float(args[i + 1])
         if a == "--out" and i + 1 < len(args): out = args[i + 1]
         if a == "--start" and i + 1 < len(args): start = float(args[i + 1])
+    if dur is None or dur <= start:
+        sys.exit("ERRO: --duration precisa de um valor em segundos maior que --start.")
 
-    lines = [ln.strip() for ln in open(txt, encoding="utf-8") if ln.strip()]
+    # Legenda nunca leva travessao (regra fixa de conteudo): troca por virgula.
+    lines = [ln.strip().replace(" — ", ", ").replace("—", ",")
+             for ln in open(txt, encoding="utf-8") if ln.strip()]
     if not lines:
         sys.exit("ERRO: arquivo de segmentos vazio.")
     total_chars = sum(max(len(ln), 1) for ln in lines)

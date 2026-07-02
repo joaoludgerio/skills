@@ -9,7 +9,9 @@ pra teste A/B.
 - `pixel-snippet.html` — o pixel comentado + passo a passo da conversão personalizada.
 
 Pra gerar uma edição: copiar os templates, trocar os tokens `{{ASSIM}}`, e gerar **`lp-a.html`** e
-**`lp-b.html`** mudando SÓ o `{{HEADLINE}}`.
+**`lp-b.html`** mudando o `{{HEADLINE}}` (a variável do A/B) **e** o `{{VARIANTE}}` do hidden input
+(`"a"` no lp-a.html, `"b"` no lp-b.html). Se o `{{VARIANTE}}` ficar igual nos dois arquivos, as duas
+LPs carimbam a mesma variante quando a URL não traz `?lp=` e o A/B fica sem medição.
 
 ## Estrutura da LP (baseada em boas práticas — fontes no fim)
 **Acima da dobra** (o que decide o scroll, ~80% só lê o headline):

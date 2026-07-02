@@ -21,7 +21,11 @@ import os
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ENV_PATH = r"C:\MCPs\heygen.env"
 API = "https://api.heygen.com"
@@ -38,19 +42,37 @@ def load_key():
     sys.exit(f"HEYGEN_API_KEY nao encontrada em {ENV_PATH}")
 
 
-def call(method, path, key, body=None):
-    req = urllib.request.Request(
-        API + path,
-        data=json.dumps(body).encode() if body else None,
-        method=method,
-        headers={"x-api-key": key, "Content-Type": "application/json", "Accept": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            return json.load(r)
-    except urllib.error.HTTPError as e:
-        print(f"HTTP {e.code}: {e.read().decode()}", flush=True)
-        raise
+def call(method, path, key, body=None, retries=3):
+    # Retry com backoff em erro transitorio (429/5xx/rede): um soluco de rede no
+    # meio do polling nao pode derrubar o run depois das cenas ja submetidas (pagas).
+    for attempt in range(1, retries + 1):
+        req = urllib.request.Request(
+            API + path,
+            data=json.dumps(body).encode() if body else None,
+            method=method,
+            headers={"x-api-key": key, "Content-Type": "application/json", "Accept": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            print(f"HTTP {e.code}: {e.read().decode(errors='replace')}", flush=True)
+            if not ((e.code == 429 or e.code >= 500) and attempt < retries):
+                raise
+        except (urllib.error.URLError, TimeoutError) as e:
+            print(f"erro de rede: {e}", flush=True)
+            if attempt >= retries:
+                raise
+        time.sleep(10 * attempt)
+
+
+def download(url, dest, timeout=120):
+    with urllib.request.urlopen(urllib.request.Request(url), timeout=timeout) as r, open(dest, "wb") as f:
+        while True:
+            chunk = r.read(256 * 1024)
+            if not chunk:
+                break
+            f.write(chunk)
 
 
 def main():
@@ -77,6 +99,19 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     key = load_key()
 
+    # CHECKPOINT DE VOZ: instanciar ANTES de submeter qualquer cena — se o modelo
+    # speaker-embed.onnx ou a referencia de voz nao existirem, falhar AQUI custa zero;
+    # falhar depois do submit custa credito HeyGen que ninguem verifica.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from verificar_voz import VoiceChecker
+    try:
+        checker = VoiceChecker()
+    except Exception as e:
+        sys.exit("ERRO ao carregar o checkpoint de voz (modelo speaker-embed.onnx e/ou "
+                 f"referencia eric-voice-ref.wav em C:/MCPs): {e}\n"
+                 "Abortando ANTES de submeter cenas (nenhum credito HeyGen foi gasto). "
+                 "Resolva o modelo/referencia e rode de novo.")
+
     # 1) submit todas as cenas (paralelo no lado do HeyGen)
     jobs = []
     for i, scene in enumerate(scenes, 1):
@@ -99,6 +134,11 @@ def main():
         vid = resp["data"]["video_id"]
         jobs.append({"n": i, "video_id": vid, "done": False, "url": None})
         print(f"[cena {i}] video_id={vid}", flush=True)
+
+    # Estado em disco: se o run cair no meio do polling, os video_id ficam
+    # registrados e da pra retomar/baixar sem resubmeter (credito ja gasto).
+    with open(os.path.join(args.out_dir, "jobs.json"), "w", encoding="utf-8") as f:
+        json.dump(jobs, f, indent=2)
 
     # 2) poll ate todas concluirem
     t0 = time.time()
@@ -124,19 +164,17 @@ def main():
             sys.exit("timeout de 45 min no polling")
 
     # 3) download + CHECKPOINT DE VOZ (anti voz-trocada) + retry
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from verificar_voz import VoiceChecker
-    checker = VoiceChecker()
-
     def download_and_check(j, scene_text):
         """Baixa a cena; se a voz nao for a do Eric, regenera (max 3 tentativas)."""
         mp4 = os.path.join(args.out_dir, f"scene-{j['n']:02d}.mp4")
         for attempt in range(1, 4):
-            urllib.request.urlretrieve(j["url"], mp4)
+            download(j["url"], mp4)
             sim = checker.similarity(mp4)
             if sim >= 0.5:
                 print(f"[cena {j['n']}] voz OK (sim={sim:.2f})", flush=True)
                 return mp4
+            if attempt == 3:
+                break  # 3a verificacao falhou: NAO regenerar de novo (seria render pago que ninguem verifica)
             print(f"[cena {j['n']}] VOZ ERRADA (sim={sim:.2f}) — regenerando (tentativa {attempt+1}/3)...", flush=True)
             # IMPORTANTE: variar o speed a cada retry — o HeyGen cacheia renders de
             # requisicoes identicas e devolveria o MESMO video com a voz errada.

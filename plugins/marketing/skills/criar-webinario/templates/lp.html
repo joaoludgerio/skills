@@ -10,15 +10,19 @@
 
   COMO USAR:
   - Trocar os tokens {{ASSIM}} pelos dados da edição.
-  - Para o A/B: gerar lp-a.html e lp-b.html mudando SÓ {{HEADLINE}} (o resto igual).
+  - Para o A/B: gerar lp-a.html e lp-b.html mudando {{HEADLINE}} E {{VARIANTE}}
+    (o resto igual). Sem trocar {{VARIANTE}}, as duas LPs carimbam a mesma variante
+    quando a URL não traz ?lp= e o A/B fica sem medição.
   - {{VARIANTE}} = "a" ou "b" (marca a variante no lead pra medir o A/B).
   - {{PIXEL_ID}} = ID do pixel. O evento de REGISTRO dispara na pág. de confirmação
     (ver confirmacao.html + pixel-snippet.html), NÃO aqui. Aqui só PageView.
   - {{ENDPOINT}} = URL que recebe o POST do formulário (backend/serviço de form).
-    No sucesso, redireciona pra {{URL_CONFIRMACAO}}.
+    O envio DEFAULT é via fetch/AJAX (script no fim da página): posta pro endpoint e
+    redireciona pra {{URL_CONFIRMACAO}} preservando a query string (?lp= e utm_*).
+  - {{FOTO_ERIC}} = URL/caminho da foto do Eric (seção "Quem vai te mostrar").
   TOKENS: {{HEADLINE}} {{SUBHEADLINE}} {{DATA}} {{HORA}} {{DURACAO}} {{PLATAFORMA}}
           {{CTA_TEXTO}} {{BONUS}} {{APRENDE_1..4}} {{PROVA_SOCIAL}} {{BIO_ERIC}}
-          {{VARIANTE}} {{PIXEL_ID}} {{ENDPOINT}} {{URL_CONFIRMACAO}}
+          {{FOTO_ERIC}} {{VARIANTE}} {{PIXEL_ID}} {{ENDPOINT}} {{URL_CONFIRMACAO}}
   ============================================================================
 -->
 <html lang="pt-BR">
@@ -191,7 +195,7 @@ fbq('track','PageView');
 <!-- ===================== QUEM É O ERIC ===================== -->
 <section>
   <div class="wrap who">
-    <img src="eric.jpg" alt="Eric — Expert Integrado">
+    <img src="{{FOTO_ERIC}}" alt="Eric — Expert Integrado">
     <div>
       <h2>Quem vai te mostrar</h2>
       <p class="lead" style="margin-bottom:0">{{BIO_ERIC}}</p>
@@ -258,14 +262,20 @@ fbq('track','PageView');
   })();
   function syncHidden(f){ /* hook caso queira validação extra antes do POST */ return true; }
 
-  // OPCIONAL: se o {{ENDPOINT}} for via fetch/AJAX, descomentar e redirecionar pra confirmação:
-  // document.querySelectorAll('form').forEach(function(f){
-  //   f.addEventListener('submit', async function(e){
-  //     e.preventDefault();
-  //     await fetch(f.action,{method:'POST',body:new FormData(f)});
-  //     location.href='{{URL_CONFIRMACAO}}'+location.search; // leva UTMs+variante pra confirmação
-  //   });
-  // });
+  // DEFAULT: envio via fetch/AJAX + redirect pra confirmação PRESERVANDO a query string
+  // (?lp= e utm_*). É isso que mantém a medição do A/B no pixel da confirmação.
+  document.querySelectorAll('form').forEach(function(f){
+    f.addEventListener('submit', async function(e){
+      e.preventDefault();
+      await fetch(f.action,{method:'POST',body:new FormData(f)});
+      location.href='{{URL_CONFIRMACAO}}'+location.search; // leva UTMs+variante pra confirmação
+    });
+  });
+
+  // FALLBACK (POST clássico): se preferir deixar o navegador postar direto pro {{ENDPOINT}},
+  // remova o bloco fetch acima. ATENÇÃO: nesse caso o ENDPOINT PRECISA redirecionar pra
+  // {{URL_CONFIRMACAO}} preservando a query string (?lp= e utm_*), senão o A/B fica sem
+  // medição no pixel da confirmação (a variante e os UTMs se perdem no redirect).
 </script>
 </body>
 </html>

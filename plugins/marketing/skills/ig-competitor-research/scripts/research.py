@@ -18,15 +18,17 @@ A analise visual e o "por que viralizou" NAO sao feitos aqui — sao do Claude
 (ver SKILL.md). Este script entrega os dados objetivos + a midia.
 
 Requisitos (ja presentes no PC do Eric): APIFY_TOKEN, ffmpeg no PATH,
-openai-whisper (import whisper), requests.
+openai-whisper (import whisper).
 """
 import argparse
 import json
 import os
 import re
+import socket
 import statistics
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -74,17 +76,34 @@ def read_handles(args):
 
 
 def apify_scrape(handles, posts_per_profile, token):
-    url = f"{APIFY_BASE}/acts/{ACTOR_ID}/run-sync-get-dataset-items?token={token}"
+    url = f"{APIFY_BASE}/acts/{ACTOR_ID}/run-sync-get-dataset-items"
     body = json.dumps({
         "usernames": handles,
         "resultsType": "details",
         "resultsLimit": posts_per_profile,
         "addParentData": False,
     }).encode()
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",  # token no header, nao na query string
+        },
+        method="POST",
+    )
     log(f"[apify] scraping {len(handles)} handles via {ACTOR_ID} ...")
-    with urllib.request.urlopen(req, timeout=300) as r:
-        items = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=300) as r:
+            items = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        log(f"ERRO: o Apify respondeu HTTP {e.code} ({e.reason}).")
+        log("Cheque se o APIFY_TOKEN esta valido e se os handles existem/estao publicos.")
+        sys.exit(1)
+    except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
+        log(f"ERRO: falha de rede/timeout ao chamar o Apify: {e}")
+        log("Cheque sua conexao e o APIFY_TOKEN. Se foi timeout, tente com menos handles por vez.")
+        sys.exit(1)
     log(f"[apify] {len(items)} perfis retornados")
     return items
 
@@ -218,9 +237,13 @@ def download_media(picks, run_dir, max_seconds):
 
     log(f"[download] baixando midia de {len(picks)} posts ...")
     with ThreadPoolExecutor(max_workers=6) as ex:
-        futs = [ex.submit(grab, i, p) for i, p in enumerate(picks, 1)]
-        for _ in as_completed(futs):
-            pass
+        futs = {ex.submit(grab, i, p): p for i, p in enumerate(picks, 1)}
+        for fut in as_completed(futs):
+            p = futs[fut]
+            try:
+                fut.result()
+            except Exception as e:
+                log(f"  [warn] download falhou @{p.get('handle')} ({p.get('shortcode') or 'sem shortcode'}): {e}")
 
 
 def transcribe_all(picks, model_name):

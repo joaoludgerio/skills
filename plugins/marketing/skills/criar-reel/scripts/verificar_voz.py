@@ -13,6 +13,7 @@ referencia da voz em C:/MCPs/eric-voice-ref.wav (16k mono, ~20s do Eric).
 
 Uso:
   python verificar_voz.py <cena1.mp4> [...] [--threshold 0.5] [--ref ...] [--model ...]
+  (defaults tambem vem das envs VOICE_MODEL e VOICE_REF, se definidas)
 
 Saida: "<arquivo>\tsim=X.XXX\tOK|VOZ_ERRADA" por linha. Exit 1 se alguma errada.
 """
@@ -24,8 +25,8 @@ import sys
 import numpy as np
 
 SR = 16000
-DEFAULT_MODEL = "C:/MCPs/speaker-embed.onnx"
-DEFAULT_REF = "C:/MCPs/eric-voice-ref.wav"
+DEFAULT_MODEL = os.environ.get("VOICE_MODEL", "C:/MCPs/speaker-embed.onnx")
+DEFAULT_REF = os.environ.get("VOICE_REF", "C:/MCPs/eric-voice-ref.wav")
 
 
 def _load_pcm(path, max_s=30):

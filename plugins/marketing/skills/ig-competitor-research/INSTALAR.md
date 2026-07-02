@@ -11,7 +11,7 @@ Catálogo: https://skills.ericluciano.com.br (categoria "Lab pessoal").
 
 - **Python 3** (`python --version`)
 - **FFmpeg** no PATH (`ffmpeg -version`)
-- **Bibliotecas Python:** `pip install -U openai-whisper requests`
+- **Bibliotecas Python:** `pip install -U openai-whisper`
 - **Token do Apify** na variável de ambiente `APIFY_TOKEN`
   - Cria conta grátis em https://apify.com → Settings → API & Integrations → copia o token
   - Windows (PowerShell): `setx APIFY_TOKEN "seu_token_aqui"` (fecha e reabre o terminal depois)
@@ -41,7 +41,7 @@ No Claude Code, é só pedir em linguagem natural:
 Ou edita a lista fixa em `competitors.txt` (1 @ por linha) e roda sem argumento.
 
 O que acontece: ele scrapeia os perfis, pega os posts da semana, rankeia por **outlier score**
-(quanto o post superou a média do próprio perfil), transcreve os Reels com Whisper, analisa o
+(quanto o post superou a mediana do próprio perfil), transcreve os Reels com Whisper, analisa o
 visual de cada post e abre um `report.html` com tudo.
 
 ## 4. Rodar direto pelo script (opcional, sem Claude)

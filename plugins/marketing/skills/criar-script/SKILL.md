@@ -90,9 +90,17 @@ Formato: <talking-head | UGC | listicle | ...>  |  Framework: <PAS | AIDA | ...>
 Regras de escrita:
 - **Escreva como a pessoa fala** (use o voice guide): vocabulário, ritmo, expressões. Som de fala humana,
   não de texto de IA. Frases ditas em voz alta, não períodos longos de leitura.
+- **Proibido frases fragmentadas separadas por pontos finais como recurso de estilo.** Ninguém fala
+  assim e isso destrói o storytelling.
+  - Proibido: "Sprint IA. Três dias. R$97."
+  - Certo (frase corrida natural): "É um sprint de três dias por noventa e sete reais."
+- **Proibido travessão** em qualquer texto de roteiro/legenda gerado (é indicador, o "tell", de texto
+  gerado por IA). Use vírgula, dois pontos ou parênteses no lugar.
 - **Hook comunica valor mesmo no mudo** (a legenda de tela já entrega a promessa).
 - **Uma mensagem central** nas peças curtas. Prova entra cedo em anúncio.
 - **CTA único** e coerente com o objetivo (referência seção 8). Nunca misture "comenta" com "clica no link".
+- **Fraseado padrão fixo pro CTA de anúncio:** "o link tá aqui embaixo". Use esse fraseado como padrão
+  sempre que o roteiro pedir CTA de saída (link) num anúncio.
 - **Legenda na tela** sempre (consumo no mudo). Sinalize onde entra texto na tela.
 - **Dados/números:** só os que a pessoa forneceu. Faltou? Use `[preencher: número/caso]`.
 

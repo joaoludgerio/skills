@@ -35,6 +35,9 @@ import time
 import urllib.error
 import urllib.request
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 HEYGEN_ENV = r"C:\MCPs\heygen.env"
 ELEVEN_ENV = r"C:\MCPs\elevenlabs.env"
 HEYGEN_API = "https://api.heygen.com"
@@ -60,19 +63,48 @@ def load_env(path, var):
     sys.exit(f"{var} nao encontrada em {path}")
 
 
+def http_retry(fn, what, retries=3):
+    """Retry com backoff em erro transitorio (429/5xx/rede): um soluco de rede no meio
+    do run (TTS, upload, polling) nao pode derrubar tudo depois de credito ja gasto."""
+    for attempt in range(1, retries + 1):
+        try:
+            return fn()
+        except urllib.error.HTTPError as e:
+            print(f"{what}: HTTP {e.code}: {e.read().decode(errors='replace')}", flush=True)
+            if not ((e.code == 429 or e.code >= 500) and attempt < retries):
+                raise
+        except (urllib.error.URLError, TimeoutError) as e:
+            print(f"{what}: erro de rede: {e}", flush=True)
+            if attempt >= retries:
+                raise
+        time.sleep(10 * attempt)
+
+
 def heygen_call(method, path, key, body=None):
-    req = urllib.request.Request(
-        HEYGEN_API + path,
-        data=json.dumps(body).encode() if body else None,
-        method=method,
-        headers={"x-api-key": key, "Content-Type": "application/json", "Accept": "application/json"},
-    )
-    try:
+    def _call():
+        req = urllib.request.Request(
+            HEYGEN_API + path,
+            data=json.dumps(body).encode() if body else None,
+            method=method,
+            headers={"x-api-key": key, "Content-Type": "application/json", "Accept": "application/json"},
+        )
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.load(r)
-    except urllib.error.HTTPError as e:
-        print(f"HeyGen HTTP {e.code}: {e.read().decode()}", flush=True)
-        raise
+    return http_retry(_call, f"HeyGen {method} {path}")
+
+
+def download(url, dest, timeout=300):
+    """Download com timeout e escrita em chunks (urlretrieve nao tem timeout)."""
+    def _dl():
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=timeout) as r, open(dest, "wb") as f:
+            while True:
+                chunk = r.read(256 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+        return dest
+    return http_retry(_dl, f"download {os.path.basename(dest)}")
 
 
 def group_scenes(scenes, block_seconds):
@@ -95,17 +127,17 @@ def eleven_tts(text, out_mp3, el_key, voice, seed=None):
     body = {"text": text, "model_id": ELEVEN_MODEL}
     if seed is not None:
         body["seed"] = seed
-    req = urllib.request.Request(
-        f"{ELEVEN_API}/v1/text-to-speech/{voice}?output_format=mp3_44100_128",
-        data=json.dumps(body).encode("utf-8"), method="POST",
-        headers={"xi-api-key": el_key, "Content-Type": "application/json"},
-    )
-    try:
+
+    def _tts():
+        req = urllib.request.Request(
+            f"{ELEVEN_API}/v1/text-to-speech/{voice}?output_format=mp3_44100_128",
+            data=json.dumps(body).encode("utf-8"), method="POST",
+            headers={"xi-api-key": el_key, "Content-Type": "application/json"},
+        )
         with urllib.request.urlopen(req, timeout=300) as r:
-            audio = r.read()
-    except urllib.error.HTTPError as e:
-        print(f"ElevenLabs HTTP {e.code}: {e.read().decode()}", flush=True)
-        raise
+            return r.read()
+
+    audio = http_retry(_tts, "ElevenLabs TTS")
     with open(out_mp3, "wb") as f:
         f.write(audio)
     return out_mp3
@@ -123,6 +155,8 @@ def check_voice_windows(checker, mp3, win=10, threshold=0.5):
     """Verifica a voz em janelas de `win`s ao longo do audio INTEIRO (o defeito do
     ElevenLabs e trocar a voz no meio — checar so o comeco nao pega). Retorna
     (ok, lista de (inicio, sim))."""
+    if checker is None:          # checkpoint desativado / sem modelo+ref nesta maquina
+        return True, []
     import numpy as np
     dur = audio_duration(mp3)
     results = []
@@ -149,10 +183,14 @@ def check_voice_windows(checker, mp3, win=10, threshold=0.5):
 def heygen_upload_audio(mp3, key):
     with open(mp3, "rb") as f:
         data = f.read()
-    req = urllib.request.Request(HEYGEN_UPLOAD, data=data, method="POST",
-                                 headers={"x-api-key": key, "Content-Type": "audio/mpeg"})
-    with urllib.request.urlopen(req, timeout=300) as r:
-        resp = json.load(r)
+
+    def _up():
+        req = urllib.request.Request(HEYGEN_UPLOAD, data=data, method="POST",
+                                     headers={"x-api-key": key, "Content-Type": "audio/mpeg"})
+        with urllib.request.urlopen(req, timeout=300) as r:
+            return json.load(r)
+
+    resp = http_retry(_up, f"HeyGen upload {os.path.basename(mp3)}")
     return resp["data"]["id"]
 
 
@@ -168,12 +206,18 @@ def main():
     ap.add_argument("--bg", default=GREEN)
     ap.add_argument("--title", default="criar-reel")
     ap.add_argument("--threshold", type=float, default=0.5)
+    ap.add_argument("--no-voice-check", action="store_true",
+                    help="pula o checkpoint de voz (util em outra maquina / outra voz)")
+    ap.add_argument("--voice-model", default=os.environ.get("VOICE_MODEL", "C:/MCPs/speaker-embed.onnx"),
+                    help="modelo sherpa speaker-embed.onnx (env VOICE_MODEL)")
+    ap.add_argument("--voice-ref", default=os.environ.get("VOICE_REF", "C:/MCPs/eric-voice-ref.wav"),
+                    help="~20s da SUA voz, 16k mono (env VOICE_REF)")
+    ap.add_argument("--regen-audio", action="store_true",
+                    help="forca regerar o TTS mesmo se o audio-NN.mp3 ja existir (default: reaproveita)")
     ap.add_argument("--so-audio", action="store_true",
                     help="gera e valida so os audios (nao gasta credito HeyGen)")
     ap.add_argument("--blocks", type=int, nargs="*", default=None,
                     help="processa so estes blocos (1-based); util pra re-rodar falha")
-    ap.add_argument("--no-voice-check", action="store_true",
-                    help="[DIAGNOSTICO] pula checkpoint de voz (usar quando speaker-embed.onnx ausente)")
     args = ap.parse_args()
 
     if args.scenes_file:
@@ -196,37 +240,53 @@ def main():
     sel = args.blocks or list(range(1, len(blocks) + 1))
 
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from verificar_voz import VoiceChecker
+    # Checkpoint de voz e OPCIONAL — pega o bug do ElevenLabs trocar a voz no meio.
+    # Precisa do modelo sherpa (speaker-embed.onnx) + ~20s de referencia da SUA voz.
+    # Se faltar qualquer um (ou --no-voice-check), segue sem o check em vez de quebrar.
     checker = None
-    if not args.no_voice_check:
-        from verificar_voz import VoiceChecker
-        checker = VoiceChecker()
+    if args.no_voice_check:
+        print("[voz] checkpoint desativado (--no-voice-check). Seguindo sem ele.", flush=True)
+    elif not os.path.exists(args.voice_model) or not os.path.exists(args.voice_ref):
+        faltam = [p for p in (args.voice_model, args.voice_ref) if not os.path.exists(p)]
+        print("[voz] checkpoint PULADO — nao achei: " + ", ".join(faltam) + ".\n"
+              "      E opcional (so detecta o ElevenLabs trocar a voz no meio). Pra ligar: baixe o\n"
+              "      modelo sherpa 'speaker-embed.onnx', grave ~20s da SUA voz (16k mono .wav) e aponte\n"
+              "      com --voice-model/--voice-ref (ou env VOICE_MODEL/VOICE_REF). Seguindo sem ele.", flush=True)
     else:
-        print("[DIAGNOSTICO] --no-voice-check ativo: checkpoint de voz pulado", flush=True)
+        try:
+            checker = VoiceChecker(args.voice_model, args.voice_ref)
+        except Exception as e:
+            print(f"[voz] checkpoint PULADO (erro ao carregar: {e}). Seguindo sem ele.", flush=True)
+            checker = None
 
     # FASE 1 — audios ElevenLabs + checkpoint de voz (barato; nada de HeyGen ainda)
     audios = {}
     for n in sel:
         text = blocks[n - 1]
         mp3 = os.path.join(args.out_dir, f"audio-{n:02d}.mp3")
-        if checker:
-            for attempt in range(1, 4):
-                # seed varia por tentativa — regenerar igual devolveria o mesmo defeito
-                eleven_tts(text, mp3, el_key, args.eleven_voice, seed=1000 * n + attempt)
-                ok, wins = check_voice_windows(checker, mp3, threshold=args.threshold)
-                sims = " ".join(f"{t:.0f}s={s:.2f}" for t, s in wins)
-                dur = audio_duration(mp3)
-                if ok:
-                    print(f"[bloco {n}] audio OK ({dur:.1f}s) janelas: {sims}", flush=True)
-                    audios[n] = mp3
-                    break
-                print(f"[bloco {n}] VOZ SUSPEITA (tentativa {attempt}/3) janelas: {sims}", flush=True)
-            else:
-                sys.exit(f"[bloco {n}] voz errada no ElevenLabs apos 3 tentativas — abortando")
-        else:
-            eleven_tts(text, mp3, el_key, args.eleven_voice, seed=1000 * n + 1)
+        # Reaproveita o audio ja gerado+validado (ex: depois de um --so-audio aprovado).
+        # Evita re-rolar o TTS e arriscar mudar a pronuncia. --regen-audio forca regenerar.
+        if os.path.exists(mp3) and not args.regen_audio:
+            ok, _ = check_voice_windows(checker, mp3, threshold=args.threshold)
+            if ok:
+                print(f"[bloco {n}] audio reaproveitado (ja existe, voz OK, {audio_duration(mp3):.1f}s)", flush=True)
+                audios[n] = mp3
+                continue
+            print(f"[bloco {n}] audio existente reprovou no check — regerando", flush=True)
+        for attempt in range(1, 4):
+            # seed varia por tentativa — regenerar igual devolveria o mesmo defeito
+            eleven_tts(text, mp3, el_key, args.eleven_voice, seed=1000 * n + attempt)
+            ok, wins = check_voice_windows(checker, mp3, threshold=args.threshold)
+            sims = " ".join(f"{t:.0f}s={s:.2f}" for t, s in wins)
             dur = audio_duration(mp3)
-            print(f"[bloco {n}] audio gerado ({dur:.1f}s) — sem checkpoint de voz", flush=True)
-            audios[n] = mp3
+            if ok:
+                print(f"[bloco {n}] audio OK ({dur:.1f}s) janelas: {sims}", flush=True)
+                audios[n] = mp3
+                break
+            print(f"[bloco {n}] VOZ SUSPEITA (tentativa {attempt}/3) janelas: {sims}", flush=True)
+        else:
+            sys.exit(f"[bloco {n}] voz errada no ElevenLabs apos 3 tentativas — abortando")
 
     if args.so_audio:
         print("--so-audio: parando antes do HeyGen. Audios validados:", flush=True)
@@ -277,19 +337,28 @@ def main():
 
     # FASE 3 — download + re-verificacao + concat
     mp4s = []
+    suspeitos = []
     for j in sorted(jobs, key=lambda x: x["n"]):
         mp4 = os.path.join(args.out_dir, f"block-{j['n']:02d}.mp4")
-        urllib.request.urlretrieve(j["url"], mp4)
-        if checker:
-            ok, wins = check_voice_windows(checker, mp4, threshold=args.threshold)
-            sims = " ".join(f"{t:.0f}s={s:.2f}" for t, s in wins)
-            print(f"[bloco {j['n']}] video {'OK' if ok else 'VOZ SUSPEITA'} janelas: {sims}", flush=True)
-        else:
-            print(f"[bloco {j['n']}] video baixado (sem checkpoint de voz)", flush=True)
+        download(j["url"], mp4)
+        ok, wins = check_voice_windows(checker, mp4, threshold=args.threshold)
+        sims = " ".join(f"{t:.0f}s={s:.2f}" for t, s in wins)
+        print(f"[bloco {j['n']}] video {'OK' if ok else 'VOZ SUSPEITA'} janelas: {sims}", flush=True)
+        if not ok:
+            suspeitos.append(j["n"])
         mp4s.append(mp4)
+
+    def alerta_suspeitos():
+        # exit 3 = codigo distinto: o video final EXISTE, mas precisa de revisao humana
+        if suspeitos:
+            blocos = " ".join(str(n) for n in suspeitos)
+            print(f"ATENCAO: blocos [{blocos}] com VOZ SUSPEITA no video. Ouvir antes de usar; "
+                  f"re-rodar com --blocks {blocos} --regen-audio se confirmar.", flush=True)
+            sys.exit(3)
 
     if args.blocks:
         print("(--blocks: pulei o concat — re-rode sem --blocks ou concatene na mao)", flush=True)
+        alerta_suspeitos()
         return
 
     listfile = os.path.join(args.out_dir, "concat.txt")
@@ -303,6 +372,7 @@ def main():
         "-pix_fmt", "yuv420p", final,
     ])
     print(f"FINAL -> {final}", flush=True)
+    alerta_suspeitos()
 
 
 if __name__ == "__main__":

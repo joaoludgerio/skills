@@ -67,6 +67,12 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   5. Baixa, re-verifica a voz no vídeo e concatena.
 - `--so-audio` = para após a validação dos áudios (zero gasto HeyGen) — usar pra testar tamanho
   de bloco. `--blocks 2 3` = reprocessa só os blocos listados.
+
+> **PROIBIDO usar `--no-voice-check` pra contornar uma reprovação real do checkpoint de voz.**
+> Essa flag existe SÓ pra rodar em máquina sem modelo/referência de voz configurados
+> (`speaker-embed.onnx` / `eric-voice-ref.wav` ausentes). Se a voz reprovar 3x: parar e avisar,
+> nunca insistir com bypass.
+
 - Erro `MOVIO_PAYMENT_INSUFFICIENT_CREDIT` = crédito de API acabou (separado da assinatura — avisar).
 - Conferir 1 frame do resultado (`Read`): fundo tem que estar verde chapado.
 - **Pronúncia:** o ElevenLabs pronuncia melhor que o TTS do HeyGen, mas manter a regra do
@@ -191,5 +197,6 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 - **`scripts/compose_reel.py`** — composição (chromakey/alpha + B-roll + legenda .ass estilizada).
 - **`references/voz-eric.md`** — tom, blacklist e estrutura de roteiro.
 - **`references/kling-api.md`** — API do Kling, manifesto, troubleshooting.
-- **`references/banco-broll.md`** — banco de B-rolls reutilizáveis (Downloads/broll-bank); consultar na etapa 6 ANTES de gerar Kling.
+- **`references/banco-broll.md`** — banco de B-rolls reutilizáveis, REMOTO (GitHub Release, acesso
+  via `scripts/broll_bank.py`, cache local em `~/.cache/broll-bank`); consultar na etapa 6 ANTES de gerar Kling.
 - **`references/visual-broll-thumb.md`** — estilo dos frames e da thumb.

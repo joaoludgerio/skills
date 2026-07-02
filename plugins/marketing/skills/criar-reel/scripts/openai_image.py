@@ -14,7 +14,11 @@ import base64
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ENV_PATH = r"C:\MCPs\openai.env"
 API = "https://api.openai.com/v1/images/generations"

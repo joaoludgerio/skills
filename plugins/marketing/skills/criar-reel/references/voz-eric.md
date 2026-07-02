@@ -17,6 +17,7 @@ Prático, educador, sem hype, focado em resultado. Praticante, não teórico. Nu
 - Verbos de PowerPoint: impulsionar, alavancar, escalar, destravar, potencializar, otimizar, maximizar, viabilizar.
 - CTA institucional: "clique no link abaixo", "saiba mais", "descubra", "conheça agora".
 - Fechamento com cheiro de GPT: "isso pode mudar tudo", "o futuro começa agora", "a escolha é sua".
+- Nunca usar travessão (—) em roteiro, legenda ou thumb (é tell de IA): usar vírgula, dois pontos ou parênteses.
 
 ## NUNCA usar frases fragmentadas com ponto
 Padrão telegráfico mata o storytelling e denuncia IA.
@@ -43,14 +44,34 @@ fala, entrega. Não exagerar a humanização (não vira caricatura com "cara" em
 3. **Tradução pro público:** o que isso muda na prática pra quem tem empresa e não é técnico.
 4. **CTA:** comentar uma palavra-chave → receber material no direct. Palavra curta, sem ponto/símbolo
    (ex: "markdown", "guia", "claude"). Cada Reel usa uma palavra diferente pra não cruzar automações.
-   A grafia é a que o brasileiro DIGITA naturalmente ("gol", não "goal") — e avisar o Eric de
+   A grafia é a que o brasileiro DIGITA naturalmente ("gol", não "goal"), e avisar o Eric de
    cadastrar as variantes (gol/goal) como gatilho no ManyChat pra não perder lead.
+
+### Regra de CTA: orgânico vs ad (nunca misturar)
+- **Reel orgânico:** CTA sempre "comenta [palavra]" (o lead comenta, automação manda o material no direct).
+- **Anúncio pago:** CTA exclusivo é "link aqui embaixo" (ou equivalente apontando pro link do ad).
+- Nunca misturar os dois no mesmo Reel: se é orgânico, não usa "link aqui embaixo"; se é ad, não usa "comenta X".
 
 ## Legenda do post (regra)
 A legenda NÃO replica o roteiro. Parte do mesmo tema com ângulo diferente: uma provocação, um dado
 novo, um contexto que o vídeo não cobriu. Fecha com o mesmo CTA (comentar a palavra).
 
+**Formatação:** sem asterisco/markdown (o Instagram não renderiza, aparece literal) e no
+máximo 5 hashtags.
+
 ## Regras de fato (anti-erro)
 - Nunca inventar dado de lançamento/ferramenta. Pesquisar e conferir antes (WebFetch/WebSearch).
 - Nunca prometer resultado específico como garantia. Atribuir claims a quem disse (ex: "a Stripe falou que...").
 - Português com acentuação correta.
+
+## Glossário de pronúncia pro TTS (cenas.txt)
+Termos em inglês e siglas o TTS lê errado se forem escritos do jeito original: sempre sair em
+grafia fonética aportuguesada no `cenas.txt` (a LEGENDA na tela mostra a grafia certa, isso é
+só pro áudio). Pelo menos estes:
+- Claude → CLÁUDI
+- MCP → eme cê pê
+- Slack → SLÉK
+- Remotion → RIMÓTCHON
+- twenty → TUÉNTI
+Regra geral: qualquer termo em inglês ou sigla que o TTS possa engolir errado sai fonético no
+cenas.txt (ex: "last thirty days" por extenso, "CLAUDI" no lugar de "Claude").

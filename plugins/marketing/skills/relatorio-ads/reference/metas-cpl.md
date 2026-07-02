@@ -9,7 +9,7 @@
 | **Webinário / Live** (OUTCOME_LEADS) | CPL | < R$40 | R$40–80 | > R$80 | `Website leads` |
 | **Mentoria** (OUTCOME_SALES) | custo/reunião | < R$200 | R$200–400 | > R$400 | `invitee_meeting_scheduled` |
 | **Super SDR / WhatsApp** (CONVERSAS) | CPL (conversa) | < R$5 | R$5–12 | > R$12 | conversas iniciadas |
-| **Cursos R$97** (OUTCOME_SALES web) | CPA | *(definir)* | — | *(definir)* | `omni_purchase` |
+| **Cursos R$97** (OUTCOME_SALES web) | CPA | < R$16 | R$16–32 | > R$32 | `omni_purchase` |
 
 ## Como o relatório usa esta tabela
 

@@ -9,6 +9,7 @@ Toda copy desta skill segue o tom da Expert Integrado. Releia as memórias `tom-
 - Dados e números sempre que possível.
 - Primeira pessoa do singular (o Eric fala).
 - Português com **acentuação correta**.
+- **Nunca usar travessão em copy** (é tell de IA): usar vírgula, dois pontos ou parênteses.
 
 **Pronome (Eric é paulista):** sempre "você / seu / sua" — NUNCA "tu / teu / tua". "te" oblíquo pode
 ("te mostro"). Imperativos curtos coloquiais OK ("olha", "pensa", "agenda").

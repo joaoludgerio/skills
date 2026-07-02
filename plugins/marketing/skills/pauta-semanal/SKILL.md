@@ -39,7 +39,7 @@ transcrição — mas a transcrição deixa a pauta muito melhor.)
 
 ## Passo 3 — Analisar e escolher
 Leia o `research_data.json` do `RUN_DIR`. Para os posts de maior **outlier score** (os que mais
-superaram a média do próprio perfil), identifique padrões: que **temas**, **formatos** e **hooks** estão
+superaram a mediana do próprio perfil), identifique padrões: que **temas**, **formatos** e **hooks** estão
 puxando o engajamento da semana. Olhe as capas (`frame_path`) e transcrições.
 
 ## Passo 4 — Montar as 5 pautas
@@ -52,12 +52,15 @@ não mande copiar). Para cada pauta, entregue:
 • Formato sugerido: <Reel talking-head | carrossel listicle | ...>
 • Hook sugerido: "<primeira frase que prende>"
 • Por que tende a funcionar: <mecanismo — baseado no que viralizou esta semana>
-• CTA sugerido: <orgânico: comenta/salva | ou pago, conforme o objetivo>
+• CTA sugerido: <orgânico: comenta/salva | ou pago: "o link tá aqui embaixo". NUNCA misture os dois
+  na mesma peça: CTA orgânico ("comenta X") e CTA de anúncio ("link aqui embaixo") são mundos separados>
 • Referência: <@perfil + o que ele fez que bombou>
 ```
 
 Regras:
 - **Diversifique** formatos e pilares (não 5 pautas iguais).
+- **Hooks e textos gerados:** sem travessão (use vírgula, dois pontos ou parênteses) e sem frases
+  fragmentadas com pontos (nada de "Sprint IA. Três dias. R$97.", escreva como fala corrida).
 - Cada pauta deve ser **acionável** (dá pra gravar/produzir esta semana).
 - Baseie-se no que **realmente** apareceu na pesquisa — cite a referência. Nada de inventar tendência.
 - Mantenha o tom/nicho da marca da pessoa (se houver contexto salvo, use; senão, neutro).
@@ -72,6 +75,8 @@ Regras:
 Para automatizar: criar uma **scheduled task** (via MCP `scheduled-tasks`) que dispara esta skill toda
 segunda de manhã e entrega as pautas no canal que a pessoa quiser (WhatsApp/Zoom/Telegram/e-mail).
 - Cron sugerido: `0 8 * * 1` (segunda, 8h).
+- **No run agendado, rode com `--no-transcribe`** (o Whisper small é lento e trava o horário da
+  entrega). Se alguma pauta escolhida precisar da transcrição, transcreva só esses posts depois.
 - A tarefa deve apontar pro `competitors.txt` e `APIFY_TOKEN` da pessoa que assumir.
 - Não criar a tarefa sem a pessoa pedir; e confirmar o canal de entrega antes.
 

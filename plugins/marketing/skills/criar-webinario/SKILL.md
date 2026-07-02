@@ -44,7 +44,9 @@ Saída: um `brief.md` na pasta do webinário com tudo acima.
 Ler `references/landing-page-ab.md`. **A skill (você) gera as LPs em HTML** a partir dos templates
 prontos em `templates/` (estrutura validada por pesquisa de LP de alta conversão).
 - Copiar `templates/lp.html` e `templates/confirmacao.html`, trocar os tokens `{{ASSIM}}`.
-- Gerar `lp-a.html` e `lp-b.html` mudando **só o `{{HEADLINE}}`** (a variável do A/B); resto igual.
+- Gerar `lp-a.html` e `lp-b.html` mudando **o `{{HEADLINE}}` (a variável do A/B) E o `{{VARIANTE}}`**
+  do hidden input (`"a"` no lp-a.html, `"b"` no lp-b.html); o resto igual. Sem trocar o `{{VARIANTE}}`,
+  as duas LPs carimbam a mesma variante no lead quando a URL não traz `?lp=` e o A/B fica sem medição.
 - **Formulário enxuto** (cada campo a mais derruba conversão): só nome + WhatsApp + nº de funcionários
   (o qualificador de ICP). Já vem assim no template. Grava a variante (`?lp=a`/`?lp=b`) e os UTMs.
 - Deploy: **Cloudflare Pages** ou Vercel → duas URLs públicas. A pág. de confirmação é separada (Fase 3).
@@ -114,5 +116,7 @@ Ler `references/funil-e-metricas.md`. Montar o relatório do funil:
 
 ## Notas
 - Tudo na voz do Eric (`criar-reel/references/voz-eric.md`): humano, oral, específico — nunca IA/corporativo.
+- **PROIBIDO travessão** em qualquer copy gerada (LP, criativo, roteiro, lembrete): é tell óbvio de IA.
+  Use vírgula, dois pontos ou parênteses no lugar.
 - Nunca inventar case/número. Conferir antes (regra de fato do `voz-eric.md`).
 - CTA de **ad** ≠ CTA orgânico. Ad = aponta link. Orgânico = "comenta X".

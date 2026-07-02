@@ -15,9 +15,9 @@ prontos pra copiar/adaptar.
 
 ## Pré-requisitos (já instalados no PC do Eric)
 - `APIFY_TOKEN` no ambiente (ator `apify~instagram-profile-scraper`)
-- `ffmpeg` no PATH · `openai-whisper` (import whisper) · Python 3 com `requests`
+- `ffmpeg` no PATH · `openai-whisper` (import whisper) · Python 3
 
-Se algum faltar em outra máquina: `pip install -U openai-whisper requests` e instalar ffmpeg.
+Se algum faltar em outra máquina: `pip install -U openai-whisper` e instalar ffmpeg.
 
 ## Entradas
 - **Handles**: passados como argumento (`@handle1 @handle2`) OU lidos de `competitors.txt` na raiz da skill

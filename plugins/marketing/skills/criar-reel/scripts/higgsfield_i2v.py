@@ -20,6 +20,9 @@ import subprocess
 import sys
 import urllib.request
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 HF = r"C:\MCPs\hf.exe"
 
 
@@ -39,20 +42,38 @@ def run(args, parse_json=True):
     return r.stdout
 
 
-def find_url(obj):
-    """Acha a primeira URL de video no JSON de resultado."""
+def _collect_http_urls(obj, out):
+    """Coleta (chave, valor) de toda string http(s) no JSON, recursivamente."""
     if isinstance(obj, dict):
         for k, v in obj.items():
-            if isinstance(v, str) and v.startswith("http") and (".mp4" in v or "video" in k.lower() or "url" in k.lower()):
-                return v
-            r = find_url(v)
-            if r:
-                return r
+            if isinstance(v, str) and v.startswith("http"):
+                out.append((k, v))
+            else:
+                _collect_http_urls(v, out)
     elif isinstance(obj, list):
         for it in obj:
-            r = find_url(it)
-            if r:
-                return r
+            _collect_http_urls(it, out)
+
+
+def find_url(obj):
+    """Acha a URL do VIDEO pronto no JSON de resultado.
+
+    A resposta pode trazer varias URLs (ex: thumbnail_url alem da do video).
+    Prioridade: 1) valor que termina em .mp4  2) chave contendo "video"
+    3) so por ultimo, qualquer chave contendo "url" (match generico)."""
+    candidates = []
+    _collect_http_urls(obj, candidates)
+    if not candidates:
+        return None
+    for k, v in candidates:
+        if v.lower().split("?")[0].endswith(".mp4"):
+            return v
+    for k, v in candidates:
+        if "video" in k.lower():
+            return v
+    for k, v in candidates:
+        if "url" in k.lower():
+            return v
     return None
 
 
@@ -83,7 +104,11 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     manifest = json.load(open(sys.argv[1], encoding="utf-8"))
-    only = [int(a) for a in sys.argv[2:]] if len(sys.argv) > 2 else None
+    sel = sys.argv[2:]
+    if not sel or sel == ["all"]:
+        only = None
+    else:
+        only = [int(a) for a in sel]
 
     frames_dir = manifest["frames_dir"]
     out_dir = manifest["output_dir"]

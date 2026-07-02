@@ -83,11 +83,17 @@ def card(i, p):
     why = p.get("why_it_worked")
     visual = p.get("visual_notes")
     caption = p.get("caption") or ""
+    # so vira link se a URL for https:// (evita javascript: e afins vindos do scrape)
+    url = str(p.get("url") or "")
+    if url.startswith("https://"):
+        view = f'<a class="view" href="{esc(url)}" target="_blank" rel="noopener">ver no Instagram ↗</a>'
+    else:
+        view = f'<span class="view">{esc(url)}</span>' if url else ""
     return f"""
     <article class="card">
       <div class="rank">#{i}</div>
       <div class="left">{thumb}
-        <a class="view" href="{esc(p.get('url'))}" target="_blank" rel="noopener">ver no Instagram ↗</a>
+        {view}
       </div>
       <div class="body">
         <div class="head">
