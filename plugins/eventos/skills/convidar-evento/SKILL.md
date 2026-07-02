@@ -110,7 +110,7 @@ Fala [PrimeiroNome], beleza? Tô fechando a lista das turmas de julho. 28 ou 29,
 ## PROTOCOLO DE EXECUÇÃO
 
 ### Passo 0: Coletar parâmetros
-- **evento_id de cada dia** no MCP expert-integrado (jul/2026: dia 28 = `2621e765-994c-480f-962a-0715dae6fbe3`)
+- **evento_id de cada dia** no MCP expert-integrado (jul/2026: dia 28 = `2621e765-994c-480f-962a-0715dae6fbe3`, dia 29 = `f2157b51-f82c-4c84-b62e-bf21c6afdf8f`)
 - Confirmar com o Eric o lote do dia (quantos e quais segmentos)
 
 ### Passo 1: Listar participantes
