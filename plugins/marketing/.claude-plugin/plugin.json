@@ -1,7 +1,7 @@
 {
   "name": "marketing",
-  "version": "2.11.0",
-  "description": "Skills de marketing, conteudo e trafego da Expert Integrado: orquestracao multi-agente de conteudo (orquestrar-conteudo: site/landing/Instagram com Copywriter+Designer+Revisor em paralelo), producao de reels/video com avatar (criar-reel com trava de orcamento, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt), carrossel (carrossel-studio), imagem com identidade (imagem), roteiro (criar-script), pipeline modular de blog GEO (agente-draft-blog -> agente-revisor-blog -> agente-publisher-blog + gerar-hero-blog pra capa; substitui o criar-post-blog ora deprecado), demonstracao ao vivo de agente em palestra (demonstracao-agente), trafego pago Meta Ads (criar-campanha, relatorio-ads), webinario (criar-webinario), pesquisa de conteudo (ig-competitor-research, pauta-semanal) e tweet print.",
+  "version": "2.12.0",
+  "description": "Skills de marketing, conteudo e trafego da Expert Integrado: orquestracao multi-agente de conteudo (orquestrar-conteudo: site/landing/Instagram com Copywriter+Designer+Revisor em paralelo), producao de reels/video com avatar (criar-reel com trava de orcamento, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt), carrossel (carrossel-studio), imagem com identidade (imagem), roteiro (criar-script), pipeline modular de blog GEO (agente-draft-blog -> agente-revisor-blog -> agente-publisher-blog + gerar-hero-blog pra capa; substitui o criar-post-blog ora deprecado), demonstracao ao vivo de agente em palestra (demonstracao-agente), trafego pago Meta Ads (criar-campanha, relatorio-ads), webinario (criar-webinario), pesquisa de conteudo (ig-competitor-research, pauta-semanal), workflow viral-pra-reel (pesquisa de concorrentes com filtros de fit e atemporalidade alimentando o criar-reel de ponta a ponta) e tweet print.",
   "author": {
     "name": "Eric Luciano Ferreira",
     "email": "operacoes@expertintegrado.com.br",
@@ -10,5 +10,25 @@
   "homepage": "https://github.com/expertintegrado/skills",
   "repository": "https://github.com/expertintegrado/skills",
   "license": "MIT",
-  "keywords": ["expert-integrado", "marketing", "conteudo", "trafego", "meta-ads", "instagram", "visual", "reels", "video", "carrossel", "webinario", "heygen", "elevenlabs", "kling", "avatar", "blog", "geo", "seo"]
+  "keywords": [
+    "expert-integrado",
+    "marketing",
+    "conteudo",
+    "trafego",
+    "meta-ads",
+    "instagram",
+    "visual",
+    "reels",
+    "video",
+    "carrossel",
+    "webinario",
+    "heygen",
+    "elevenlabs",
+    "kling",
+    "avatar",
+    "blog",
+    "geo",
+    "seo",
+    "viral"
+  ]
 }

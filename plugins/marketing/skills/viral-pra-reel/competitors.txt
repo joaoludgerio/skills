@@ -1,0 +1,7 @@
+# Concorrentes/perfis de referência do nicho pro viral-pra-reel.
+# 1 handle por linha. Edite com os perfis do SEU nicho; linhas com # são ignoradas.
+# Pra rodar com outros perfis sem mexer aqui, passe os handles direto na invocação.
+noevarner.ai
+brodyautomates
+duncanrogoff
+pedrohtmallet
