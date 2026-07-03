@@ -73,5 +73,7 @@ só pro áudio). Pelo menos estes:
 - Slack → SLÉK
 - Remotion → RIMÓTCHON
 - twenty → TUÉNTI
+- GitHub → NUNCA falar (nem fonetizado, o TTS erra sempre): dizer "repositório" na fala.
+  Na legenda da tela, legenda do post, thumb e página escreve-se "GitHub" normalmente.
 Regra geral: qualquer termo em inglês ou sigla que o TTS possa engolir errado sai fonético no
 cenas.txt (ex: "last thirty days" por extenso, "CLAUDI" no lugar de "Claude").
