@@ -267,13 +267,20 @@ def main():
         mp3 = os.path.join(args.out_dir, f"audio-{n:02d}.mp3")
         # Reaproveita o audio ja gerado+validado (ex: depois de um --so-audio aprovado).
         # Evita re-rolar o TTS e arriscar mudar a pronuncia. --regen-audio forca regenerar.
+        # Alem da voz, o TEXTO do bloco tem que bater (sidecar .txt): se o cenas.txt ou o
+        # --block-seconds mudarem entre runs, o audio antigo e de OUTRO texto — nao reaproveitar.
+        sidecar = mp3 + ".txt"
         if os.path.exists(mp3) and not args.regen_audio:
-            ok, _ = check_voice_windows(checker, mp3, threshold=args.threshold)
-            if ok:
-                print(f"[bloco {n}] audio reaproveitado (ja existe, voz OK, {audio_duration(mp3):.1f}s)", flush=True)
-                audios[n] = mp3
-                continue
-            print(f"[bloco {n}] audio existente reprovou no check — regerando", flush=True)
+            texto_igual = os.path.exists(sidecar) and open(sidecar, encoding="utf-8").read() == text
+            if not texto_igual:
+                print(f"[bloco {n}] audio existente e de outro texto/split — regerando", flush=True)
+            else:
+                ok, _ = check_voice_windows(checker, mp3, threshold=args.threshold)
+                if ok:
+                    print(f"[bloco {n}] audio reaproveitado (mesmo texto, voz OK, {audio_duration(mp3):.1f}s)", flush=True)
+                    audios[n] = mp3
+                    continue
+                print(f"[bloco {n}] audio existente reprovou no check — regerando", flush=True)
         for attempt in range(1, 4):
             # seed varia por tentativa — regenerar igual devolveria o mesmo defeito
             eleven_tts(text, mp3, el_key, args.eleven_voice, seed=1000 * n + attempt)
@@ -282,6 +289,8 @@ def main():
             dur = audio_duration(mp3)
             if ok:
                 print(f"[bloco {n}] audio OK ({dur:.1f}s) janelas: {sims}", flush=True)
+                with open(sidecar, "w", encoding="utf-8") as f:
+                    f.write(text)
                 audios[n] = mp3
                 break
             print(f"[bloco {n}] VOZ SUSPEITA (tentativa {attempt}/3) janelas: {sims}", flush=True)

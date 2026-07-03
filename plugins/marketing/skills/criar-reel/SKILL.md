@@ -52,7 +52,15 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   Esta é a trava que a v2 tinha e a v3 não tinha — herdada e adaptada pra economia da v3.
 
 ### 3a. Vídeo do avatar (modo automático — ElevenLabs + HeyGen lip-sync)
-- `python scripts/elevenlabs_heygen.py --scenes-file cenas.txt --out-dir <reel>/heygen` (background).
+- **PRÉ-VOO DE VOZ primeiro (obrigatório, custa centavos):** o eleven_multilingual_v2 troca o
+  timbre da voz pra CERTOS textos, de forma determinística (seed e voice_settings não salvam;
+  medido em produção em 02/07/2026). Rodar:
+  `python scripts/preflight_voz.py <reel>/cenas.txt --block-seconds 12`
+  Bloco reprovado = REESCREVER a frase (mesmo sentido, ritmo/estrutura diferentes) e re-rodar o
+  pré-voo até tudo passar. Só então disparar o run de produção abaixo.
+- `python scripts/elevenlabs_heygen.py --scenes-file cenas.txt --out-dir <reel>/heygen --block-seconds 12`
+  (background). Blocos de 12s reduzem muito a chance do defeito de timbre (validado em produção);
+  o default de ~20s fica pra quando o Eric pedir explicitamente.
 - O que o script faz (diferença central pra v2):
   1. Agrupa as cenas do `cenas.txt` em **blocos de até ~20s** (decisão do Eric/João em
      11/06/2026 após teste com 30s; `--block-seconds` muda).

@@ -95,6 +95,10 @@ O briefing contém, nesta ordem:
 Seguir o fluxo do criar-reel do início ao fim (incluindo o gate de orçamento da etapa 2.5 dele,
 que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
 
+- **Pré-voo de voz (antes do gate de orçamento):** rodar
+  `python "$SKILLS_DIR/criar-reel/scripts/preflight_voz.py" <reel>/cenas.txt --block-seconds 12`
+  e reescrever as frases dos blocos reprovados até o pré-voo passar inteiro (o ElevenLabs troca
+  o timbre pra certos textos; detalhes na etapa 3a do criar-reel).
 - **Roteiro (etapa 2 do criar-reel):** o `cenas.txt` deve somar **900-980 caracteres**
   (medir com `wc -c`). A voz do Eric no ElevenLabs fala ~16 chars/s reais (medido em produção:
   1034 chars viraram 65s); acima de 1000 chars o vídeo passa dos 60s do alvo da estrutura
