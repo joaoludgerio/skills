@@ -31,16 +31,18 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
    pedir ao usuário (a pesquisa usa o ator de scrape do Instagram da Apify).
 4. NUNCA gravar saída dentro da pasta do plugin (ela é sobrescrita em updates): tudo vai em
    `$RUN_BASE` e nas pastas `~/Downloads/reel-<slug>/` de cada vídeo.
-5. Carregar o REGISTRO DE PRODUZIDOS (obrigatório, é o anti-repetição do Filtro D):
-   (a) carregar via ToolSearch a tool `mcp__biblioteca__biblioteca_listar_conteudos` e listar
-   os conteúdos publicados: a Biblioteca é o registro NA NUVEM (todo reel produzido publica
-   página lá), então funciona mesmo em outra máquina ou se o arquivo local se perder;
-   (b) ler `$RUN_BASE/reels-produzidos.md` (se não existir, criar com o cabeçalho
-   `| data | tema | palavra CTA | slug Biblioteca | referência |`);
-   (c) SINCRONIZAR: todo slug da Biblioteca que não estiver no arquivo local vira uma linha
-   nova com data do created_at, tema tirado do título/descrição e referência "(pré-registro)".
-   Assim o arquivo local nunca fica atrás da nuvem (aconteceu em produção: um tema repetido
-   passou porque o registro local não conhecia os reels antigos).
+5. Carregar o REGISTRO DE PRODUZIDOS (obrigatório, é o anti-repetição do Filtro D). Ele é
+   COMPARTILHADO ENTRE MÁQUINAS (João, Eric, etc.) e tem três camadas:
+   (a) REGISTRO NA NUVEM (arquivo reels-produzidos.md no repo GitHub do banco de B-rolls):
+   sincronizar pro local com
+   `PYTHONUTF8=1 python "$SKILLS_DIR/viral-pra-reel/scripts/registro_reels.py" --sync "$RUN_BASE/reels-produzidos.md"`
+   (a leitura é pública, não precisa de login);
+   (b) BIBLIOTECA via MCP (carregar `mcp__biblioteca__biblioteca_listar_conteudos` via
+   ToolSearch): é a fonte da verdade do que está PUBLICADO; todo slug dela que não estiver no
+   arquivo sincronizado vira linha nova de pré-registro no arquivo local;
+   (c) o arquivo local `$RUN_BASE/reels-produzidos.md` é a cópia de trabalho do run.
+   Motivo das camadas: em produção um tema repetido passou porque o registro só existia numa
+   máquina; com a nuvem, qualquer máquina (a do Eric inclusive) vê o mesmo histórico.
 
 ## ETAPA 1 — Coleta (custo: centavos de Apify + CPU do Whisper)
 
@@ -144,8 +146,12 @@ que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
 - Página do CTA publicada na Biblioteca (a tool devolve a URL; colocar no chat e no legenda-post).
 - Lembrar o usuário no resumo final: cadastrar a palavra do CTA (e variantes) no ManyChat.
 - **Atualizar o registro (obrigatório, fecha o anti-repetição):** depois de CADA vídeo
-  produzido, acrescentar uma linha em `$RUN_BASE/reels-produzidos.md`:
-  `| AAAA-MM-DD | <tema em 5-8 palavras> | <PALAVRA> | <slug da Biblioteca> | @handle/<shortcode> |`.
+  produzido, acrescentar a linha
+  `| AAAA-MM-DD | <tema em 5-8 palavras> | <PALAVRA> | <slug da Biblioteca> | @handle/<shortcode> |`
+  no arquivo local E na nuvem, via
+  `PYTHONUTF8=1 python "$SKILLS_DIR/viral-pra-reel/scripts/registro_reels.py" --add "<linha>"`.
+  Se o --add sair com exit 2 (máquina sem acesso de escrita no repo), a linha fica só no local:
+  AVISAR no resumo final que o registro remoto ficou pendente.
   A palavra de CTA de um vídeo novo NUNCA repete uma já listada no registro.
 
 ## Regras anti-deriva (se alguma instrução conflitar, estas vencem)
