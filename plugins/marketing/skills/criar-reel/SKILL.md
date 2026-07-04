@@ -37,11 +37,19 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   ângulo, e **aguardar aprovação do Eric antes de gastar crédito**.
 
 ### 2. Roteiro (voz do Eric)
+- **Sincronizar os padrões do próprio perfil PRIMEIRO (sempre, mesmo fora do viral-pra-reel):**
+  `PYTHONUTF8=1 python "../viral-pra-reel/scripts/registro_reels.py" --file padroes-perfil.md --sync <tmp>.md`
+  (caminho relativo à pasta desta skill; leitura pública, sem custo). Ler as "3 regras
+  acionáveis" no fim do arquivo — são dados reais do que performou/flopou com ESTE público,
+  mais recentes que o esqueleto abaixo, e têm prioridade se divergirem dele.
 - Ler **`references/estrutura-viral.md`** (padrão dos vídeos que estouraram) e seguir o template
-  "Insider de IA": hook = dor já sentida → diagnóstico com número ("ninguém te conta") → batismo
-  ("isso tem nome: X") → solução nomeada com artefato → CTA. Alvo 40-60s. **Medida objetiva:
-  o cenas.txt inteiro soma 900-980 caracteres** (conferir com `wc -c`): a voz do Eric fala
-  ~16 chars/s reais, acima de 1000 chars o vídeo passa de 60s. Cortar ANTES do gate 2.5.
+  "Insider de IA": hook em segunda pessoa sobre um dano ATUAL (proibido abrir com notícia,
+  pergunta hipotética ou conta abstrata de tempo — ver a seção 1 do arquivo) → diagnóstico com
+  número ("ninguém te conta") → batismo ("isso tem nome: X") → solução nomeada com artefato →
+  CTA de palavra-chave simples já repetida no vídeo (nunca "salva e me segue" como CTA
+  principal). Alvo **50-66s**. **Medida objetiva: o cenas.txt inteiro soma 900-980 caracteres**
+  (conferir com `wc -c`): a voz do Eric fala ~16 chars/s reais, acima de 1000 chars o vídeo
+  passa de 66s. Cortar ANTES do gate 2.5.
 - A textura da fala vem de `references/voz-eric.md` (tom, blacklist, frases inteiras).
 - Entregar também a **legenda do post** (ângulo diferente do roteiro) + hashtags.
 - **Quebrar o roteiro em CENAS de 1-2 frases** (arquivo `cenas.txt`, uma cena por linha). Script

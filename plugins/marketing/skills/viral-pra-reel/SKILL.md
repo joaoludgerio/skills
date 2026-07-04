@@ -59,6 +59,10 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
    AAAA-MM-DD") e subir: `registro_reels.py --file padroes-perfil.md --put "$RUN_BASE/padroes-perfil.md"`.
 4. Esses padrões ALIMENTAM a curadoria (desempate entre candidatos: tema mais próximo dos hits
    ganha) e o roteiro (etapa 4/5: hook e CTA seguem o que JÁ funcionou com este público).
+5. Na etapa 4 (briefing), copiar literalmente as "3 regras acionáveis" do fim do
+   `padroes-perfil.md` pro briefing como diretiva de hook/CTA/duração — elas têm prioridade
+   sobre o esqueleto genérico de `estrutura-viral.md` (criar-reel) se os dois divergirem, por
+   serem mais recentes e específicas deste público.
 
 ## ETAPA 1 — Coleta (custo: centavos de Apify + CPU do Whisper)
 
