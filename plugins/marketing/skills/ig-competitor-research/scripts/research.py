@@ -145,6 +145,8 @@ def collect_posts(profiles, days):
             ts = parse_ts(p.get("timestamp"))
             if ts and ts >= cutoff:
                 recent.append((p, ts))
+        log(f"[perfil] @{handle}: {len(posts)} posts retornados, {len(recent)} na janela"
+            + (" — ATENCAO: zero na janela (perfil parado ou handle errado?)" if not recent else ""))
         for p, ts in recent:
             eng = engagement(p)
             outlier = round(eng / median_eng, 2) if median_eng else 0.0

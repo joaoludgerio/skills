@@ -32,11 +32,15 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
 4. NUNCA gravar saída dentro da pasta do plugin (ela é sobrescrita em updates): tudo vai em
    `$RUN_BASE` e nas pastas `~/Downloads/reel-<slug>/` de cada vídeo.
 5. Carregar o REGISTRO DE PRODUZIDOS (obrigatório, é o anti-repetição do Filtro D):
-   (a) ler `$RUN_BASE/reels-produzidos.md` (se não existir, criar com o cabeçalho
-   `| data | tema | palavra CTA | slug Biblioteca | referência |`);
-   (b) carregar via ToolSearch a tool `mcp__biblioteca__biblioteca_listar_conteudos` e listar
+   (a) carregar via ToolSearch a tool `mcp__biblioteca__biblioteca_listar_conteudos` e listar
    os conteúdos publicados: a Biblioteca é o registro NA NUVEM (todo reel produzido publica
-   página lá), então funciona mesmo em outra máquina ou se o arquivo local se perder.
+   página lá), então funciona mesmo em outra máquina ou se o arquivo local se perder;
+   (b) ler `$RUN_BASE/reels-produzidos.md` (se não existir, criar com o cabeçalho
+   `| data | tema | palavra CTA | slug Biblioteca | referência |`);
+   (c) SINCRONIZAR: todo slug da Biblioteca que não estiver no arquivo local vira uma linha
+   nova com data do created_at, tema tirado do título/descrição e referência "(pré-registro)".
+   Assim o arquivo local nunca fica atrás da nuvem (aconteceu em produção: um tema repetido
+   passou porque o registro local não conhecia os reels antigos).
 
 ## ETAPA 1 — Coleta (custo: centavos de Apify + CPU do Whisper)
 
@@ -166,7 +170,11 @@ que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
 ## Edge cases
 - Apify timeout: o run-sync tem teto de ~300s; reduzir handles e avisar.
 - Transcrição vazia num candidato forte: analisar por legenda + frame, marcar como referência visual.
-- Nenhum candidato aprovado: reportar e sugerir `--dias 60`; nunca baixar a régua do fit.
+- Nenhum candidato aprovado: seguir o CICLO DE ESGOTAMENTO, nesta ordem e sem baixar a régua:
+  (1) reexecutar com `--dias 60`; (2) se ainda zerar, rodar com os handles de RESERVA
+  comentados no competitors.txt desta skill (passar direto como argumento); (3) se ainda
+  zerar, reportar ao usuário e pedir handles novos. Coletas repetidas custam centavos;
+  candidato fraco custa um vídeo ruim.
 - Rodada em lote/agendada: isso é da skill `pauta-semanal`; este workflow produz UM vídeo.
 - Saldo/crédito de API acabou no meio: parar, reportar o que foi gasto e o que falta; nunca
   trocar de motor sem avisar.

@@ -5,3 +5,8 @@ noevarner.ai
 brodyautomates
 duncanrogoff
 pedrohtmallet
+
+# RESERVAS (usar quando os principais esgotarem, ou seja, curadoria zerada em 30 e 60 dias):
+# rowancheung
+# mreflow
+# theaiadvantage
