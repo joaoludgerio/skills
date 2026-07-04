@@ -1,4 +1,8 @@
 # CAMPEOES HISTORICOS do perfil do Eric (o scraper so alcanca posts recentes; os virais
 # antigos entram aqui manualmente, por URL ou shortcode, um por linha).
-# Analisados uma vez, viram padrao permanente no padroes-perfil.md da nuvem.
-# PREENCHER: link do reel de 600K views, do de 70-80K e do de 30K.
+# Analisados na ETAPA 0, viram padrao permanente no padroes-perfil.md da nuvem.
+https://www.instagram.com/reel/DZYTRiexKPt/
+https://www.instagram.com/reel/DYxZ4sAxuTL/
+https://www.instagram.com/reel/DZYbrMvRQYM/
+https://www.instagram.com/reel/DZDkqD1x68E/
+https://www.instagram.com/reel/DZaDN7YO_zN/
