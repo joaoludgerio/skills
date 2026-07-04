@@ -373,7 +373,9 @@ def main():
     listfile = os.path.join(args.out_dir, "concat.txt")
     with open(listfile, "w", encoding="utf-8") as f:
         for m in mp4s:
-            f.write(f"file '{m.replace(os.sep, '/')}'\n")
+            # SEMPRE absoluto: o concat demuxer resolve path relativo em relacao ao
+            # DIRETORIO DA LISTA, entao "heygen/block-01.mp4" virava heygen/heygen/...
+            f.write(f"file '{os.path.abspath(m).replace(os.sep, '/')}'\n")
     final = os.path.join(args.out_dir, args.final)
     subprocess.check_call([
         "ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", listfile,

@@ -23,6 +23,7 @@ FONETICA = {
     "váib": ["vibe"], "váibe": ["vibe"], "flôu": ["flow"],
     "guit": ["github"], "râb": ["github"],
     "éipifai": ["apify"], "apólo": ["apollo"],
+    "djémini": ["gemini"], "lâvabou": ["lovable"],
     "línquedin": ["linkedin"], "rédit": ["reddit"], "gúgou": ["google"], "méps": ["maps"],
 }
 # sempre aceitas (numerais que o Whisper escreve em digito, pontuacao de siglas comuns)

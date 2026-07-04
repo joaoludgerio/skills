@@ -65,7 +65,9 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 - **PRÉ-VOO DE VOZ primeiro (obrigatório, custa centavos):** o eleven_multilingual_v2 troca o
   timbre da voz pra CERTOS textos, de forma determinística (seed e voice_settings não salvam;
   medido em produção em 02/07/2026). Rodar:
-  `python scripts/preflight_voz.py <reel>/cenas.txt --block-seconds 12`
+  `python scripts/preflight_voz.py <reel>/cenas.txt --block-seconds 12 --transcrever`
+  Com `--transcrever` ele imprime o que o TTS FALOU em cada bloco: conferir os NOMES DE
+  FERRAMENTA contra a fonte (em produção, \"Gemini\" sem grafia fonética saiu falado errado).
   Bloco reprovado = REESCREVER a frase (mesmo sentido, ritmo/estrutura diferentes) e re-rodar o
   pré-voo até tudo passar. Só então disparar o run de produção abaixo.
 - `python scripts/elevenlabs_heygen.py --scenes-file cenas.txt --out-dir <reel>/heygen --block-seconds 12`
@@ -194,6 +196,17 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   - Se o upload falhar, usar capa emoji como fallback e avisar.
 - Requer `C:\MCPs\biblioteca.env` com BIBLIOTECA_ADMIN_EMAIL/PASSWORD (login da aba /admin).
 - Fallback (MCP fora do ar): criar via Notion MCP na raiz do workspace, como era antes.
+
+## CHECKLIST FINAL (obrigatória; pular item = entrega INCOMPLETA)
+Conferir e marcar TODOS antes de dar o trabalho por pronto (em produção um modelo entregou
+vídeo sem os itens 4-7 e o funil de CTA ficou quebrado):
+1. Vídeo final validado em 3 frames + gate de português da legenda VERDE (checar_srt.py).
+2. Thumb conferida letra a letra (acentos).
+3. legenda-post.md COM o rodapé: palavra do CTA + variantes pro ManyChat + URL da Biblioteca.
+4. Página da Biblioteca publicada (o material que o CTA promete).
+5. roteiro.md escrito (origem + fatos verificados + cenas).
+6. Registro de produzidos atualizado (registro_reels.py --add, local e nuvem).
+7. Resumo final lembrando o usuário de cadastrar a palavra (e variantes) no ManyChat.
 
 ## Saídas (TUDO dentro da pasta do reel — nada solto em Downloads)
 - `<reel>/video-final-*.mp4` — pronto pra postar (composto + legendado).

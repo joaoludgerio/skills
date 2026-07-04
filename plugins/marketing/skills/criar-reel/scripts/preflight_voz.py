@@ -66,6 +66,9 @@ def main():
     ap.add_argument("--block-seconds", type=int, default=12)
     ap.add_argument("--voice", default=DEFAULT_VOICE)
     ap.add_argument("--env", default=r"C:\MCPs\elevenlabs.env")
+    ap.add_argument("--transcrever", action="store_true",
+                    help="transcreve cada bloco com whisper (small) e imprime, pra conferir a "
+                         "PRONUNCIA de nomes de ferramenta (ex: Gemini falado errado)")
     args = ap.parse_args()
 
     if not os.path.exists(CHECKER):
@@ -80,6 +83,14 @@ def main():
         tts(text, mp3, key, args.voice, seed=1000 * n + 1)  # mesmo seed da 1a tentativa do run real
         ok, line = check(mp3)
         print(f"bloco {n}: {'PASS' if ok else 'FAIL'}  ({line})", flush=True)
+        if args.transcrever:
+            r = subprocess.run(["whisper", mp3, "--language", "Portuguese", "--model", "small",
+                                "--output_format", "txt", "--output_dir", tmp],
+                               capture_output=True, text=True, env={**os.environ, "PYTHONUTF8": "1"})
+            txt = os.path.join(tmp, os.path.splitext(os.path.basename(mp3))[0] + ".txt")
+            ouvido = open(txt, encoding="utf-8").read().strip() if os.path.exists(txt) else "(sem transcricao)"
+            print(f"   ouvido: {ouvido}", flush=True)
+            print(f"   fonte : {text}", flush=True)
         if not ok:
             fails.append((n, text))
     if fails:

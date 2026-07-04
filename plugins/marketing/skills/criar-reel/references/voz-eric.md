@@ -73,6 +73,12 @@ só pro áudio). Pelo menos estes:
 - Slack → SLÉK
 - Remotion → RIMÓTCHON
 - twenty → TUÉNTI
+- Gemini → DJÉMINI
+- Lovable → LÂVABOU
+- REGRA DE NOME NOVO (obrigatória): ferramenta que não está nesta lista GANHA grafia fonética
+  na hora (como o brasileiro pronuncia) antes de entrar no cenas.txt, e a pronúncia é conferida
+  no pré-voo com --transcrever. Nome escrito normal no cenas.txt é ERRO: em produção "Gemini"
+  escrito virou "gmini" na fala. Adicionar o nome novo a esta lista depois.
 - GitHub → NUNCA falar (nem fonetizado, o TTS erra sempre): dizer "repositório" na fala.
   Na legenda da tela, legenda do post, thumb e página escreve-se "GitHub" normalmente.
 Regra geral: qualquer termo em inglês ou sigla que o TTS possa engolir errado sai fonético no
