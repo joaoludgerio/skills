@@ -1,0 +1,12 @@
+{
+  "name": "criar-reel-remotion",
+  "private": true,
+  "description": "Engine de composicao Remotion do criar-reel (legenda karaoke + crossfades + end card). Instalado num cache persistente pelo scripts/compose_remotion.py.",
+  "dependencies": {
+    "@remotion/cli": "^4.0.484",
+    "@remotion/transitions": "^4.0.484",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.484"
+  }
+}

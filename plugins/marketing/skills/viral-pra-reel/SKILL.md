@@ -31,6 +31,12 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
    pedir ao usuário (a pesquisa usa o ator de scrape do Instagram da Apify).
 4. NUNCA gravar saída dentro da pasta do plugin (ela é sobrescrita em updates): tudo vai em
    `$RUN_BASE` e nas pastas `~/Downloads/reel-<slug>/` de cada vídeo.
+5. Carregar o REGISTRO DE PRODUZIDOS (obrigatório, é o anti-repetição do Filtro D):
+   (a) ler `$RUN_BASE/reels-produzidos.md` (se não existir, criar com o cabeçalho
+   `| data | tema | palavra CTA | slug Biblioteca | referência |`);
+   (b) carregar via ToolSearch a tool `mcp__biblioteca__biblioteca_listar_conteudos` e listar
+   os conteúdos publicados: a Biblioteca é o registro NA NUVEM (todo reel produzido publica
+   página lá), então funciona mesmo em outra máquina ou se o arquivo local se perder.
 
 ## ETAPA 1 — Coleta (custo: centavos de Apify + CPU do Whisper)
 
@@ -62,7 +68,7 @@ esta ficha (montar uma tabela interna com todos antes de decidir):
 | Performance | `outlier_score >= 2.0` passa; abaixo disso só entra como "menção bônus" se o fit for >= 9 |
 | Fit Eric (0-10) | Nota 7+ passa. +2 se o tema é IA aplicada a negócio/vendas/automação com mecanismo explicável; +2 se serve a empresário NÃO-técnico; -3 se exige o público ser dev; -5 se é fofoca de big tech, meme sem mecanismo ou promessa de dinheiro fácil |
 | Atemporalidade | Classificar em exatamente 1 de 3: **ATEMPORAL** (conceito/tutorial/erro comum: passa), **TEMPORAL-ADAPTÁVEL** (gancho é novidade mas o mecanismo é evergreen: passa COM reescrita que remove a âncora de tempo), **TEMPORAL-PURO** (notícia/evento/drama datado: DESCARTA, sem exceção) |
-| Repetição | O Eric já cobriu o tema? Em dúvida, o candidato ainda entra no checkpoint, mas com o alerta "tema possivelmente repetido" DENTRO da descrição da opção. Repetido só passa com ângulo genuinamente novo |
+| Repetição | Comparar o TEMA do candidato contra as DUAS fontes do Setup item 5 (registro local + títulos/descrições da Biblioteca). Tema equivalente já produzido = DESCARTAR, a menos que o ângulo seja genuinamente novo (aí entra no checkpoint com o alerta "tema já coberto em <slug>, ângulo novo: <qual>" na descrição). Em dúvida, entra com alerta |
 | Transcrição | Vazia (Reel sem fala)? Só passa se a legenda + frame sustentarem a análise; marcar "referência visual" |
 
 Sinais de TEMPORAL no texto: "acabou de", "lançou", "ontem/essa semana/este mês", "a nova
@@ -133,6 +139,10 @@ que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
   Biblioteca preenchida) + `roteiro.md` + `cenas.txt` + SRT corrigido.
 - Página do CTA publicada na Biblioteca (a tool devolve a URL; colocar no chat e no legenda-post).
 - Lembrar o usuário no resumo final: cadastrar a palavra do CTA (e variantes) no ManyChat.
+- **Atualizar o registro (obrigatório, fecha o anti-repetição):** depois de CADA vídeo
+  produzido, acrescentar uma linha em `$RUN_BASE/reels-produzidos.md`:
+  `| AAAA-MM-DD | <tema em 5-8 palavras> | <PALAVRA> | <slug da Biblioteca> | @handle/<shortcode> |`.
+  A palavra de CTA de um vídeo novo NUNCA repete uma já listada no registro.
 
 ## Regras anti-deriva (se alguma instrução conflitar, estas vencem)
 1. Views nunca decidem sozinhas: outlier seleciona, fit e atemporalidade cortam.

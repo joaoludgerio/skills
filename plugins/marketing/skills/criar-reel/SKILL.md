@@ -141,6 +141,17 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   altura) + legenda amarela bold no terço superior (acima da cabeça). O script converte o SRT em
   .ass com estilo explícito (NÃO usar force_style do ffmpeg — posiciona errado).
 - **Conferir 3 frames** do resultado (início/meio/fim) com `Read` antes de entregar.
+- **Engine alternativa `remotion` (validada em produção 03/07/2026):** legenda karaokê animada
+  (pop por trecho sincronizado na fala), crossfades de 0.3s entre B-rolls e end card de CTA
+  (pill âmbar pulsando com a palavra). Custo zero (render local), ~10 min por vídeo, requer
+  Node 18+. Comando (no lugar do compose_reel.py; a validação de 3 frames continua igual):
+  ```bash
+  PYTHONUTF8=1 python scripts/compose_remotion.py --reel <reel>     --srt <arquivo-corrigido>.srt --cta PALAVRA     --cta-sub "que eu te mando o guia no direct" --out video-final-<slug>.mp4
+  ```
+  Primeira execução instala dependências num cache persistente (~2 min). O template visual
+  fica em `remotion-template/` (identidade fixa: amarelo #FFE600, fonte, posições). Quando o
+  usuário não escolher engine, o default continua sendo o compose_reel.py (ffmpeg).
+  Licença Remotion: gratuita pra times de até 3 pessoas; acima disso é licença paga.
 
 ### 8. Thumb
 - Seção "Thumb" de `references/visual-broll-thumb.md`: fotográfico realista, headline branca caixa
