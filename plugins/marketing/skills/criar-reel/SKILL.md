@@ -76,6 +76,11 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   `python scripts/preflight_voz.py <reel>/cenas.txt --block-seconds 12 --transcrever`
   Com `--transcrever` ele imprime o que o TTS FALOU em cada bloco: conferir os NOMES DE
   FERRAMENTA contra a fonte (em produção, \"Gemini\" sem grafia fonética saiu falado errado).
+  **Palavra EXTRA ou FALTANTE na transcrição vs a fonte = defeito REAL do TTS, não ruído do
+  Whisper** (em produção o TTS inseriu uma sílaba: fonte \"montando o mesmo relatório\", falado
+  \"o teu mesmo relatório\"; três modelos de Whisper ouviram igual, e o gate de vocabulário do
+  SRT NÃO pega palavra inserida que já existe em outra parte do texto). Nesse caso, reescrever
+  a JUNÇÃO onde a palavra apareceu (trocar o verbo/preposição vizinhos) e re-validar.
   Bloco reprovado = REESCREVER a frase (mesmo sentido, ritmo/estrutura diferentes) e re-rodar o
   pré-voo até tudo passar. Se 2-3 reescritas do MESMO bloco reprovarem, o atrator é resistente:
   em vez de trocar palavras, MUDE O CORTE alongando/encurtando as cenas envolvidas até as
