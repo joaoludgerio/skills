@@ -23,6 +23,13 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 ## Fluxo (10 etapas — gate de orçamento na 2.5)
 
 ### 1. Pauta e fatos
+- **Checagem anti-repetição (ANTES de qualquer coisa):** consultar o registro de reels já
+  produzidos e avisar se a pauta pedida já foi coberta:
+  `PYTHONUTF8=1 python "../viral-pra-reel/scripts/registro_reels.py" --sync <tmp>.md`
+  (caminho relativo à pasta desta skill; leitura pública) e, se disponível, a Biblioteca via
+  MCP (`biblioteca_listar_conteudos`). Tema já coberto: avisar o usuário com o slug antigo e
+  só seguir se ele confirmar (ou se trouxer ângulo genuinamente novo). Ao final da produção,
+  registrar a linha nova com `registro_reels.py --add` (mesmo formato do viral-pra-reel).
 - Pauta pode ser tema, link ou repositório. Se vier URL/repo, usar `WebFetch`/`WebSearch` pra extrair
   o que é, números, instalação, diferencial. **Nunca inventar dado** — conferir versões, estrelas,
   preços, criador. Se a referência (ex: Reel viral copiado) estiver errada, corrigir e avisar.
