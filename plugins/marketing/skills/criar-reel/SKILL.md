@@ -207,6 +207,10 @@ vídeo sem os itens 4-7 e o funil de CTA ficou quebrado):
 5. roteiro.md escrito (origem + fatos verificados + cenas).
 6. Registro de produzidos atualizado (registro_reels.py --add, local e nuvem).
 7. Resumo final lembrando o usuário de cadastrar a palavra (e variantes) no ManyChat.
+8. (Se o usuário pediu "arquiva" ou terminou o ciclo de postagem) Arquivar na nuvem:
+   `PYTHONUTF8=1 python scripts/arquivar_reel.py --reel <reel> [--apagar]` sobe master + fala
+   HeyGen + textos pro release privado; `--apagar` remove a pasta local SÓ depois da
+   verificação de tamanho. Recuperar depois: `arquivar_reel.py --baixar <slug> --out <pasta>`.
 
 ## Saídas (TUDO dentro da pasta do reel — nada solto em Downloads)
 - `<reel>/video-final-*.mp4` — pronto pra postar (composto + legendado).

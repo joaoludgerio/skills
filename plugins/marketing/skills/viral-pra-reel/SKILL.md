@@ -44,6 +44,22 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
    Motivo das camadas: em produção um tema repetido passou porque o registro só existia numa
    máquina; com a nuvem, qualquer máquina (a do Eric inclusive) vê o mesmo histórico.
 
+## ETAPA 0 — Padrões do PRÓPRIO perfil (o que funciona com o público do Eric)
+
+1. Sincronizar o arquivo de padrões da nuvem:
+   `PYTHONUTF8=1 python "$SKILLS_DIR/viral-pra-reel/scripts/registro_reels.py" --file padroes-perfil.md --sync "$RUN_BASE/padroes-perfil.md"`
+2. Se o arquivo tiver "Última análise" com MENOS de 30 dias, só LER e seguir pra ETAPA 1.
+3. Se estiver velho/vazio (ou o usuário pedir "atualiza os padrões"): rodar a MESMA pesquisa
+   de concorrentes no PRÓPRIO perfil (handle em `perfil-proprio.txt` desta skill) com
+   `--dias 90`, MAIS os campeões históricos listados em `hits.txt` desta skill (o scraper só
+   alcança posts recentes; os virais antigos entram por lá). Transcrever os top posts, comparar
+   HITS vs FLOPS e reescrever o `padroes-perfil.md` com: hooks que performaram (texto literal
+   dos 3 primeiros segundos), temas campeões vs temas fracos, CTA e palavra usados nos hits,
+   duração dos hits, e 3 regras acionáveis pro próximo roteiro. Datar ("Última análise:
+   AAAA-MM-DD") e subir: `registro_reels.py --file padroes-perfil.md --put "$RUN_BASE/padroes-perfil.md"`.
+4. Esses padrões ALIMENTAM a curadoria (desempate entre candidatos: tema mais próximo dos hits
+   ganha) e o roteiro (etapa 4/5: hook e CTA seguem o que JÁ funcionou com este público).
+
 ## ETAPA 1 — Coleta (custo: centavos de Apify + CPU do Whisper)
 
 ```bash
