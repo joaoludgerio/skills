@@ -107,6 +107,14 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 - Rodar o `gerar_srt.py` da skill `gerar-srt` no vídeo da fala (modelo `medium`).
 - **Revisar o .srt**: corrigir termos ("Cláudio"→"Claude", "Haja"→"Aja", a palavra do CTA). A duração
   real do vídeo define o nº de B-rolls: `ceil(duração ÷ 5)`.
+- **GATE DE PORTUGUÊS PERFEITO (obrigatório, zero tolerância):** o Whisper inventa grafia
+  fonética ("reesplicar", "concerteza") e isso JÁ FOI PARA UM VÍDEO PUBLICÁVEL. Depois da
+  revisão, rodar SEMPRE:
+  `PYTHONUTF8=1 python scripts/checar_srt.py <arquivo>.srt <reel>/cenas.txt`
+  Ele compara cada palavra da legenda com o texto-fonte (cenas.txt) e lista qualquer palavra
+  estranha com o número do bloco. REPROVOU: corrigir TODAS pra grafia do cenas.txt e rodar de
+  novo até sair "LEGENDA OK". A composição (etapa 7) SÓ pode rodar com o gate verde. Uma letra
+  errada na tela reprova o vídeo inteiro; isso vale pra legenda, thumb, capa e end card.
 
 ### 5. Frames-base dos B-rolls (GPT Image 2 / OpenAI)
 - **Só gerar frame pros trechos que NÃO vierem do banco** (ver etapa 6 — banco primeiro).
