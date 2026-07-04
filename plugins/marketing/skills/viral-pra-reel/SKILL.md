@@ -52,7 +52,9 @@ Ler o JSON assim (nunca `cat` puro, o console Windows quebra os acentos):
 ```bash
 PYTHONUTF8=1 python -c "import json;[print(p.get('handle'),p.get('outlier_score'),p.get('views'),repr((p.get('caption') or '')[:120]),repr((p.get('transcript') or '')[:200]),sep=' | ') for p in json.load(open(r'<RUN_DIR>/research_data.json',encoding='utf-8'))['posts']]"
 ```
-(Se o JSON for uma lista direta em vez de {'posts': [...]}, ajustar.) Para CADA post, preencher
+(Se o JSON for uma lista direta em vez de {'posts': [...]}, trocar o final por
+`...for p in json.load(open(r'<RUN_DIR>/research_data.json',encoding='utf-8'))]`.) Para CADA
+post, preencher
 esta ficha (montar uma tabela interna com todos antes de decidir):
 
 | Campo | Regra objetiva |
@@ -60,7 +62,7 @@ esta ficha (montar uma tabela interna com todos antes de decidir):
 | Performance | `outlier_score >= 2.0` passa; abaixo disso só entra como "menção bônus" se o fit for >= 9 |
 | Fit Eric (0-10) | Nota 7+ passa. +2 se o tema é IA aplicada a negócio/vendas/automação com mecanismo explicável; +2 se serve a empresário NÃO-técnico; -3 se exige o público ser dev; -5 se é fofoca de big tech, meme sem mecanismo ou promessa de dinheiro fácil |
 | Atemporalidade | Classificar em exatamente 1 de 3: **ATEMPORAL** (conceito/tutorial/erro comum: passa), **TEMPORAL-ADAPTÁVEL** (gancho é novidade mas o mecanismo é evergreen: passa COM reescrita que remove a âncora de tempo), **TEMPORAL-PURO** (notícia/evento/drama datado: DESCARTA, sem exceção) |
-| Repetição | O Eric já cobriu o tema? Em dúvida, perguntar no checkpoint. Repetido só passa com ângulo genuinamente novo |
+| Repetição | O Eric já cobriu o tema? Em dúvida, o candidato ainda entra no checkpoint, mas com o alerta "tema possivelmente repetido" DENTRO da descrição da opção. Repetido só passa com ângulo genuinamente novo |
 | Transcrição | Vazia (Reel sem fala)? Só passa se a legenda + frame sustentarem a análise; marcar "referência visual" |
 
 Sinais de TEMPORAL no texto: "acabou de", "lançou", "ontem/essa semana/este mês", "a nova
@@ -109,8 +111,9 @@ que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
   (medir com `wc -c`). A voz do Eric no ElevenLabs fala ~16 chars/s reais (medido em produção:
   1034 chars viraram 65s); acima de 1000 chars o vídeo passa dos 60s do alvo da estrutura
   viral. Cortar ANTES do gate de orçamento, não depois.
-- **Nº de B-rolls:** provisório = ceil(duração estimada/5) pro gate; DEFINITIVO = medir a
-  duração real do avatar com ffprobe depois do render e recalcular `ceil(real/5)`.
+- **Nº de B-rolls:** provisório pro gate = `ceil((total_de_chars_do_cenas.txt / 16) / 5)`
+  (a voz fala ~16 chars/s); DEFINITIVO = medir a duração real do avatar com ffprobe depois do
+  render e recalcular `ceil(real/5)`.
 - **SRT (etapa 4 do criar-reel):** depois do Whisper, revisar e corrigir SEMPRE: o nome da
   ferramenta do vídeo (o ASR erra nome próprio, ex.: "APFY" -> "Apify"), "Cloud/Cláudio" ->
   "Claude", a palavra do CTA em CAIXA ALTA, e erros de junção (ex.: "com texto" -> "contexto").
