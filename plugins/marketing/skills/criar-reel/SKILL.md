@@ -32,13 +32,16 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 ### 2. Roteiro (voz do Eric)
 - Ler **`references/estrutura-viral.md`** (padrão dos vídeos que estouraram) e seguir o template
   "Insider de IA": hook = dor já sentida → diagnóstico com número ("ninguém te conta") → batismo
-  ("isso tem nome: X") → solução nomeada com artefato → CTA. Alvo 40-60s (~120-140 palavras).
+  ("isso tem nome: X") → solução nomeada com artefato → CTA. Alvo 40-60s. **Medida objetiva:
+  o cenas.txt inteiro soma 900-980 caracteres** (conferir com `wc -c`): a voz do Eric fala
+  ~16 chars/s reais, acima de 1000 chars o vídeo passa de 60s. Cortar ANTES do gate 2.5.
 - A textura da fala vem de `references/voz-eric.md` (tom, blacklist, frases inteiras).
 - Entregar também a **legenda do post** (ângulo diferente do roteiro) + hashtags.
 - **Quebrar o roteiro em CENAS de 1-2 frases** (arquivo `cenas.txt`, uma cena por linha). Script
   inteiro de uma vez no HeyGen degrada a qualidade — regra do Eric, ~9-12 cenas por vídeo.
-- **Pronúncia no texto das cenas:** escrever "CLAUDI" no lugar de "Claude" e termos em inglês por
+- **Pronúncia no texto das cenas:** escrever "CLÁUDI" no lugar de "Claude" e termos em inglês por
   extenso ("last thirty days") — senão o TTS fala errado. A LEGENDA mostra a grafia certa.
+  Glossário completo em voz-eric.md. Lembrete fixo: na fala é "repositório", NUNCA "GitHub".
 
 ### 2.5 Gate de orçamento (rodar ANTES de gastar crédito)
 - Estimar o custo e **mostrar pro Eric/João antes de disparar HeyGen/ElevenLabs/Kling**:

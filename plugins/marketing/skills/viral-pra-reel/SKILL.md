@@ -16,25 +16,27 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
 
 ## Setup (rodar UMA vez no início de todo run)
 
-1. Este SKILL.md vem com o "Base directory for this skill" injetado. As skills irmãs ficam ao
-   lado dele: `SKILLS_DIR` = o diretório pai do base directory (ex.: base = `.../skills/viral-pra-reel`
-   -> `SKILLS_DIR = .../skills`). Conferir:
+1. Definir as variáveis do run COPIANDO este bloco literalmente (num único comando Bash; em
+   comandos seguintes, repetir a definição de SKILLS_DIR/RUN_BASE no mesmo comando, porque o
+   shell não guarda variáveis entre chamadas):
    ```bash
+   SKILLS_DIR=$(ls -d "$HOME/.claude/plugins/cache/expertintegrado/marketing"/*/skills | sort -V | tail -1)
+   RUN_BASE="$HOME/Downloads/viral-pra-reel"; mkdir -p "$RUN_BASE"
    ls "$SKILLS_DIR/ig-competitor-research/scripts/research.py" "$SKILLS_DIR/criar-reel/scripts/elevenlabs_heygen.py"
    ```
-   Se faltar alguma, avisar o usuário que o plugin marketing está incompleto e parar.
+   Se o `ls` falhar, avisar o usuário que o plugin marketing está incompleto/desinstalado e parar.
 2. Todo comando `python` deste workflow roda com `PYTHONUTF8=1` na frente (console Windows é
    cp1252 e quebra acento sem isso; em macOS/Linux é inócuo).
 3. Conferir que `APIFY_TOKEN` existe no ambiente (`echo ${APIFY_TOKEN:+ok}`). Sem ele, parar e
    pedir ao usuário (a pesquisa usa o ator de scrape do Instagram da Apify).
-4. Definir a pasta de trabalho do run: `RUN_BASE = ~/Downloads/viral-pra-reel` (criar se não
-   existir). NUNCA gravar saída dentro da pasta do plugin (ela é sobrescrita em updates).
+4. NUNCA gravar saída dentro da pasta do plugin (ela é sobrescrita em updates): tudo vai em
+   `$RUN_BASE` e nas pastas `~/Downloads/reel-<slug>/` de cada vídeo.
 
 ## ETAPA 1 — Coleta (custo: centavos de Apify + CPU do Whisper)
 
 ```bash
 PYTHONUTF8=1 python "$SKILLS_DIR/ig-competitor-research/scripts/research.py" \
-  --file "<base-desta-skill>/competitors.txt" \
+  --file "$SKILLS_DIR/viral-pra-reel/competitors.txt" \
   --dias 30 --top-total 12 \
   --outdir "$RUN_BASE/output"
 ```
@@ -46,7 +48,11 @@ Rodar em BACKGROUND (Whisper demora minutos). Regras:
 
 ## ETAPA 2 — Curadoria (ler research_data.json e pontuar TODOS os posts)
 
-Ler o JSON com `PYTHONUTF8=1 python` (nunca `cat`/print sem UTF-8). Para CADA post, preencher
+Ler o JSON assim (nunca `cat` puro, o console Windows quebra os acentos):
+```bash
+PYTHONUTF8=1 python -c "import json;[print(p.get('handle'),p.get('outlier_score'),p.get('views'),repr((p.get('caption') or '')[:120]),repr((p.get('transcript') or '')[:200]),sep=' | ') for p in json.load(open(r'<RUN_DIR>/research_data.json',encoding='utf-8'))['posts']]"
+```
+(Se o JSON for uma lista direta em vez de {'posts': [...]}, ajustar.) Para CADA post, preencher
 esta ficha (montar uma tabela interna com todos antes de decidir):
 
 | Campo | Regra objetiva |
@@ -132,6 +138,17 @@ que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
 4. Dois pontos de aprovação humana: checkpoint 1 e o gate de orçamento. Nada é gasto antes deles.
 5. Claim de concorrente sem verificação NÃO entra no roteiro nem na página do CTA.
 6. cenas.txt entre 900 e 980 caracteres, sem exceção sem aprovação do usuário.
+
+## Modo lote (o usuário pediu N vídeos de uma vez, ex.: "me entrega 5")
+1. UMA coleta só (etapa 1) serve de base pra todos; selecionar os N melhores candidatos que
+   passam nos filtros (checkpoint 1 vira uma lista, ou é pulado se "roda automático").
+2. Palavra de CTA DIFERENTE por vídeo (nunca repetir na mesma leva) e B-rolls com o mínimo de
+   repetição entre os vídeos (anotar os ids já usados e variar categoria/série).
+3. Produzir EM SÉRIE, um vídeo por vez, do início ao fim (nunca dois elevenlabs_heygen ao mesmo
+   tempo, e nunca duas produções do MESMO vídeo em paralelo).
+4. Informar o custo TOTAL estimado (N x simulação) antes de começar, e o custo real no resumo.
+5. No resumo final: tabela com pasta, duração, palavra do CTA e URL da Biblioteca de cada vídeo,
+   mais o lembrete das palavras pro ManyChat.
 
 ## Edge cases
 - Apify timeout: o run-sync tem teto de ~300s; reduzir handles e avisar.
