@@ -69,7 +69,10 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   Com `--transcrever` ele imprime o que o TTS FALOU em cada bloco: conferir os NOMES DE
   FERRAMENTA contra a fonte (em produção, \"Gemini\" sem grafia fonética saiu falado errado).
   Bloco reprovado = REESCREVER a frase (mesmo sentido, ritmo/estrutura diferentes) e re-rodar o
-  pré-voo até tudo passar. Só então disparar o run de produção abaixo.
+  pré-voo até tudo passar. Se 2-3 reescritas do MESMO bloco reprovarem, o atrator é resistente:
+  em vez de trocar palavras, MUDE O CORTE alongando/encurtando as cenas envolvidas até as
+  fronteiras dos blocos mudarem (o defeito é do texto exato do bloco; outro corte = outro
+  texto). Validado em produção. Só então disparar o run de produção abaixo.
 - `python scripts/elevenlabs_heygen.py --scenes-file cenas.txt --out-dir <reel>/heygen --block-seconds 12`
   (background). Blocos de 12s reduzem muito a chance do defeito de timbre (validado em produção);
   o default de ~20s fica pra quando o Eric pedir explicitamente.

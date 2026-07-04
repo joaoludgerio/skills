@@ -24,6 +24,8 @@ FONETICA = {
     "guit": ["github"], "râb": ["github"],
     "éipifai": ["apify"], "apólo": ["apollo"],
     "djémini": ["gemini"], "lâvabou": ["lovable"],
+    "envídia": ["nvidia"], "équis": ["dgx", "x"], "dê": ["dgx"], "gê": ["dgx"],
+    "spark": ["spark"],
     "línquedin": ["linkedin"], "rédit": ["reddit"], "gúgou": ["google"], "méps": ["maps"],
 }
 # sempre aceitas (numerais que o Whisper escreve em digito, pontuacao de siglas comuns)
@@ -58,7 +60,7 @@ def main():
             continue
         num = linhas[0].strip()
         for w in palavras(" ".join(linhas[2:])):
-            if w and w not in vocab:
+            if w and w not in vocab and not w.isdigit():
                 suspeitas.append((num, w))
 
     if suspeitas:
