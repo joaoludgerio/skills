@@ -37,7 +37,9 @@ que vai ao ar, ex: a enxuta sem respiros) — assim o SRT bate certinho.
 
 ## Caminho B — a partir do PRINT do Ray Jam (sem vídeo)
 1. `Read` na imagem do print e transcrever o texto do roteiro, **um segmento de legenda por linha**,
-   num arquivo `segmentos.txt` (juntar/quebrar linhas em trechos que façam sentido como legenda).
+   num arquivo `segmentos.txt`. Usar o mesmo critério do Caminho A: **~4 palavras por segmento,
+   máx. ~25 caracteres** (cortar antes disso se cair num ponto natural de fala, tipo vírgula ou fim
+   de oração curta).
 2. Perguntar/estimar a **duração total** da fala em segundos.
 3. Rodar:
    ```bash

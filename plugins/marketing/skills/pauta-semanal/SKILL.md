@@ -23,16 +23,27 @@ decide o que VOCÊ vai postar a partir disso.
   personaliza a pauta — troque pelos perfis que fazem sentido pra sua marca.
 
 ## Passo 1 — Garantir a configuração
-1. Localize a skill `ig-competitor-research` (normalmente em `.claude/skills/ig-competitor-research`).
+1. Localize a skill `ig-competitor-research`: ela fica na mesma pasta de skills do plugin que esta
+   (pasta irmã de `pauta-semanal`). Ver Passo 2 pra regra exata de resolução do caminho.
 2. Cheque se há `competitors.txt` com handles. Se não houver (ou estiver vazio), **pergunte os @** à
    pessoa e ofereça salvar no `competitors.txt` pra próxima vez.
 3. Cheque se `APIFY_TOKEN` está no ambiente. Se não, oriente: "crie uma conta em apify.com, pegue o token
    e configure como variável de ambiente `APIFY_TOKEN`" — e pare até resolver.
 
 ## Passo 2 — Rodar a pesquisa (últimos 7 dias)
+Resolva o caminho do `research.py` da skill instalada (funciona de qualquer pasta, independente de onde
+o comando é chamado):
+```bash
+SKILLS_DIR=$(ls -d "$HOME/.claude/plugins/cache/expertintegrado/marketing"/*/skills | sort -V | tail -1)
+```
+`ig-competitor-research` fica em `$SKILLS_DIR/ig-competitor-research/scripts/research.py`, uma pasta
+irmã de `pauta-semanal` dentro do mesmo plugin. Se esse caminho não existir (instalação diferente do
+padrão), procure com um glob por `**/ig-competitor-research/scripts/research.py` a partir da raiz de
+skills disponíveis antes de desistir.
+
 Rode o script da skill de pesquisa (janela de 7 dias):
 ```bash
-PYTHONUTF8=1 python <caminho>/ig-competitor-research/scripts/research.py [@handles...] --dias 7 --top-total 15
+PYTHONUTF8=1 python "$SKILLS_DIR/ig-competitor-research/scripts/research.py" [@handles...] --dias 7 --top-total 15
 ```
 Guarde o `RUN_DIR` impresso na última linha. (Se a pessoa quiser rápido, `--no-transcribe` pula a
 transcrição — mas a transcrição deixa a pauta muito melhor.)
@@ -68,16 +79,23 @@ Regras:
 ## Passo 5 — Entregar
 - Mostre as 5 pautas na conversa.
 - Salve em `pautas/<AAAA-MM-DD>_pauta-semana.md` pra ficar registrado.
-- Aponte o `report.html` da pesquisa (gerável com `build_report.py`) caso a pessoa queira se aprofundar.
+- Aponte o `report.html` da pesquisa (gerável com `build_report.py`, mesma resolução de `SKILLS_DIR` do
+  Passo 2: `python "$SKILLS_DIR/ig-competitor-research/scripts/build_report.py" "<RUN_DIR>"`) caso a
+  pessoa queira se aprofundar.
 - Ofereça emendar com a skill `/criar-script` pra já roteirizar a pauta escolhida.
 
 ## Como rodar sozinha toda segunda (opcional)
-Para automatizar: criar uma **scheduled task** (via MCP `scheduled-tasks`) que dispara esta skill toda
-segunda de manhã e entrega as pautas no canal que a pessoa quiser (WhatsApp/Zoom/Telegram/e-mail).
-- Cron sugerido: `0 8 * * 1` (segunda, 8h).
+Este pipeline é 100% local (Python, `ffmpeg`, Whisper local, `APIFY_TOKEN` e `competitors.txt` na
+máquina da pessoa) - por isso a automação precisa ser um **agendador local** que dispare o Claude Code
+com acesso a essas mesmas variáveis e arquivos, não um agente na nuvem. Use o agendador de tarefas do
+próprio sistema operacional da pessoa (no Windows, o Task Scheduler; mesmo padrão que já é usado pra
+outras tarefas agendadas locais) apontando pra um comando `claude` que roda esta skill toda segunda de
+manhã e entrega as pautas no canal que a pessoa quiser (WhatsApp/Zoom/Telegram/e-mail).
+- Horário sugerido: segunda, 8h.
 - **No run agendado, rode com `--no-transcribe`** (o Whisper small é lento e trava o horário da
   entrega). Se alguma pauta escolhida precisar da transcrição, transcreva só esses posts depois.
-- A tarefa deve apontar pro `competitors.txt` e `APIFY_TOKEN` da pessoa que assumir.
+- A tarefa deve rodar na máquina (ou servidor) que tem `competitors.txt`, `APIFY_TOKEN`, Python,
+  `ffmpeg` e Whisper instalados e configurados pra pessoa que assumir.
 - Não criar a tarefa sem a pessoa pedir; e confirmar o canal de entrega antes.
 
 ## Custo

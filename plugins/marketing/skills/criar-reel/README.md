@@ -34,7 +34,7 @@ Tudo salvo dentro de uma pasta única do Reel (em `Downloads`), nada solto:
 ## Como funciona (passo a passo resumido)
 
 1. **Pauta e fatos** — entende o tema, e se vier link/repo pesquisa e confere os dados (nunca inventa número).
-2. **Roteiro** — escreve no tom do Eric seguindo o template viral (dor → diagnóstico com número → "isso tem nome" → solução → CTA), com alvo de 40-60s.
+2. **Roteiro** — escreve no tom do Eric seguindo o template viral (dor → diagnóstico com número → "isso tem nome" → solução → CTA), com alvo de 50-66s.
 3. **Fala do avatar** — gera o áudio no ElevenLabs (voz clonada do Eric) e faz só o lip-sync no HeyGen (o avatar do Eric mexendo a boca no áudio). É aqui que a v3 economiza.
 4. **Legenda da tela (SRT)** — transcreve o vídeo e corrige os termos técnicos.
 5. **Fundos (B-rolls)** — primeiro reaproveita o **banco de B-rolls** já existente (~219 clipes prontos); só gera novo no que faltar.

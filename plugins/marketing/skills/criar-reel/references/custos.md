@@ -48,7 +48,14 @@ via `scripts/simular_custo.py`). A v3 é mais barata que a v2: a fala sai do **E
   (`--imagens assinatura`).
 
 ## Estimativa de duração e câmbio
-- Ritmo de fala medido: **~17,8 caracteres/segundo** → `duração_s ≈ chars ÷ 17,8`.
+- Ritmo de fala usado por este simulador: **~17,8 caracteres/segundo** (`CHARS_POR_SEG` em
+  `scripts/simular_custo.py`, calibrado com um render real: 938 chars / 52,8s) →
+  `duração_s ≈ chars ÷ 17,8`. É uma calibração própria deste script, feita pra estimar duração
+  no gate de orçamento; não confundir com `CHARS_PER_SECOND = 17.5` (constante do pipeline de
+  geração de fala em `scripts/elevenlabs_heygen.py`, usada pra agrupar cenas em blocos de TTS) nem
+  com os ~16 chars/s reais do vídeo pronto (empírico, usado como regra operacional pro alvo de
+  900-980 caracteres do `cenas.txt`, ver SKILL.md etapa 2). São três medidas próximas mas de
+  propósitos diferentes; cada uma vale só no arquivo/script onde está documentada.
 - Câmbio default **R$ 5,10/US$** (jun/2026). Atualizar com `--cambio`.
 
 ## Nível de confiança

@@ -40,7 +40,7 @@ A imagem nao e sempre IA. Ordem de preferencia:
    ```
    - `--all-missing` gera pra todos os posts sem hero (idempotente, pula PNG/WebP existente).
    - `--alt "<texto>"` opcional; sem ele, gera heroAlt acentuado a partir do titulo.
-   - `--blog-dir` opcional (default `C:\repos\expertintegrado-blog`).
+   - `--blog-dir` opcional (default `C:\repos\expertintegrado-blog`). Se o repo não estiver clonado nesse caminho na máquina atual (ex: máquina do João, onde o repo não existe), NÃO rodar o script achando que vai falhar silenciosamente: primeiro checar se o repo está clonado em outro caminho e passar `--blog-dir <caminho-real>`, ou, se não estiver clonado em lugar nenhum, avisar e parar em vez de tentar gerar a imagem sem ter onde salvar o MDX/frontmatter.
 3. O script: gera via gpt-image-2 HIGH -> converte pra WebP q82 (~60KB, -97% vs PNG) -> salva `public/images/<slug>-hero.webp` -> insere/atualiza `heroImage` + `heroAlt` no frontmatter (acentuacao correta).
 4. Validar: `npm run build` no repo do blog (0 erros) antes de commit/deploy.
 

@@ -16,8 +16,13 @@ playbook marcando o que bateu regra de **matar** ou **escalar**.
 ## Fonte de verdade dos guardrails
 
 As regras dependem do **produto/objetivo** de cada campanha — um CPL bom pra webinário é ruim pra
-WhatsApp. Por isso os limites vivem em **`reference/metas-cpl.md`** (tabela por produto) e as regras de
-operação em **`playbooks/trafego-meta-ads.md`**. **Leia os dois no início de cada execução.**
+WhatsApp. Por isso os limites e as regras de operação vivem em **`reference/metas-cpl.md`** (tabela
+por produto + regras universais). **Leia esse arquivo no início de cada execução.**
+
+> Nota: o playbook completo de tráfego (`playbooks/trafego-meta-ads.md`, contexto e histórico
+> estendidos) não faz parte deste plugin; ele vive no repo separado
+> `joaoludgerio/expert-automacoes-marketing`. As regras que a skill de fato aplica já estão
+> duplicadas em `reference/metas-cpl.md`, então não é preciso ir buscar o playbook pra rodar.
 
 > ⚠️ **Não existe limite único.** Para cada anúncio, identifique o tipo de resultado (vem no campo
 > `results`, ex: "Website leads" = webinário, "invitee_meeting_scheduled" = mentoria) e aplique a linha
@@ -43,6 +48,12 @@ Resumo das regras (detalhe e limites em `metas-cpl.md`):
 ---
 
 ## Passo a passo
+
+### 0. Gate: confira se o MCP de Meta Ads está disponível
+Antes de chamar `ads_get_ad_accounts` ou `ads_get_ad_entities`, verifique se essas tools existem
+no ambiente atual. Se o MCP de Meta Ads não estiver configurado neste projeto, **pare aqui** e
+avise o João que o MCP precisa ser configurado antes de rodar o relatório, em vez de tentar chamar
+uma tool inexistente.
 
 ### 1. Descoberta e janela de tempo
 1. `ads_get_ad_accounts` → confirme o ID numérico e que está `is_queryable`.
@@ -123,10 +134,10 @@ Regras do bloco de ações:
 ---
 
 ## Quando rodar sozinho (tarefa agendada)
-Para virar relatório diário automático, criar uma scheduled task (via MCP `scheduled-tasks`) que dispara
-esta skill 1x/dia de manhã, com o passo 5 já configurado pra enviar no canal escolhido (sem checkpoint).
-Sugestão de horário: cedo (ex: 8h), pra chegar antes do João abrir o Gerenciador. Não criar a task sem o
-João pedir — esta skill, sozinha, é só sob demanda.
+Para virar relatório diário automático, use a skill nativa do Claude Code `schedule` (não é um MCP)
+pra criar uma tarefa agendada que dispara esta skill 1x/dia de manhã, com o passo 5 já configurado
+pra enviar no canal escolhido (sem checkpoint). Sugestão de horário: cedo (ex: 8h), pra chegar antes
+do João abrir o Gerenciador. Não criar a tarefa sem o João pedir; esta skill, sozinha, é só sob demanda.
 
 ## Checklist antes de entregar
 - [ ] Conta confirmada e `is_queryable`

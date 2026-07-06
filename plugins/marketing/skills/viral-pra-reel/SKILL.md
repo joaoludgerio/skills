@@ -49,6 +49,10 @@ Onde houver número (nota de corte, contagem de caracteres, quantidade de clips)
 1. Sincronizar o arquivo de padrões da nuvem:
    `PYTHONUTF8=1 python "$SKILLS_DIR/viral-pra-reel/scripts/registro_reels.py" --file padroes-perfil.md --sync "$RUN_BASE/padroes-perfil.md"`
 2. Se o arquivo tiver "Última análise" com MENOS de 30 dias, só LER e seguir pra ETAPA 1.
+   Se o arquivo NÃO EXISTIR, vier vazio, ou a data estiver num formato que não dá pra interpretar
+   com confiança (ex.: sem "Última análise:", data corrompida ou ambígua): tratar como
+   DESATUALIZADO e seguir o passo 3 (refazer a análise), nunca assumir "menos de 30 dias" por
+   omissão.
 3. Se estiver velho/vazio (ou o usuário pedir "atualiza os padrões"): rodar a MESMA pesquisa
    de concorrentes no PRÓPRIO perfil (handle em `perfil-proprio.txt` desta skill) com
    `--dias 90`, MAIS os campeões históricos listados em `hits.txt` desta skill (o scraper só
@@ -140,12 +144,17 @@ que NUNCA é pulado). Regras adicionais deste workflow por cima dele:
   e reescrever as frases dos blocos reprovados até o pré-voo passar inteiro (o ElevenLabs troca
   o timbre pra certos textos; detalhes na etapa 3a do criar-reel).
 - **Roteiro (etapa 2 do criar-reel):** o `cenas.txt` deve somar **900-980 caracteres**
-  (medir com `wc -c`). A voz do Eric no ElevenLabs fala ~16 chars/s reais (medido em produção:
-  1034 chars viraram 65s); acima de 1000 chars o vídeo passa dos 60s do alvo da estrutura
-  viral. Cortar ANTES do gate de orçamento, não depois.
-- **Nº de B-rolls:** provisório pro gate = `ceil((total_de_chars_do_cenas.txt / 16) / 5)`
-  (a voz fala ~16 chars/s); DEFINITIVO = medir a duração real do avatar com ffprobe depois do
-  render e recalcular `ceil(real/5)`.
+  (medir com `wc -c`), regra operacional validada em produção pro alvo de 50-66s (ver SKILL.md
+  do criar-reel, etapa 2). O código usa `CHARS_PER_SECOND = 17.5` (constante em
+  `scripts/elevenlabs_heygen.py`, fonte da verdade) pra agrupar cenas em blocos; o vídeo inteiro
+  pronto, já com as pausas entre blocos, roda mais perto de ~16 chars/s reais (medido em
+  produção: 1034 chars viraram 65s), por isso a régua que manda é a contagem de caracteres, não
+  uma conta feita na hora. Acima de 1000 chars o vídeo passa dos 66s do alvo. Cortar ANTES do
+  gate de orçamento, não depois.
+- **Nº de B-rolls:** provisório pro gate = `ceil((total_de_chars_do_cenas.txt / 16) / 5)` (usa o
+  ~16 chars/s real do vídeo pronto, não o `CHARS_PER_SECOND` de agrupamento, porque ainda não
+  existe vídeo renderizado pra medir com ffprobe); DEFINITIVO = medir a duração real do avatar
+  com ffprobe depois do render e recalcular `ceil(real/5)`.
 - **SRT (etapa 4 do criar-reel):** depois do Whisper, revisar e corrigir SEMPRE: o nome da
   ferramenta do vídeo (o ASR erra nome próprio, ex.: "APFY" -> "Apify"), "Cloud/Cláudio" ->
   "Claude", a palavra do CTA em CAIXA ALTA, e erros de junção (ex.: "com texto" -> "contexto").

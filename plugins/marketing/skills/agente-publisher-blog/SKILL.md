@@ -1,6 +1,6 @@
 ---
 name: agente-publisher-blog
-description: Publica post MDX aprovado no blog expertintegrado.com.br/blog. Salva arquivo em src/content/blog/, faz git commit+push, aguarda Vercel deploy, salva nota no Expert Brain, e atualiza cross-links nos posts relacionados. TRIGGER quando Claude ou Eric pedir "publica o post", "faz o deploy do artigo", "sobe o post" após revisão aprovada.
+description: Publica post MDX aprovado no blog expertintegrado.com.br/blog. Puxa o repo, salva arquivo em src/content/blog/, faz git commit+push, roda deploy manual na Vercel e confirma que o post novo está no ar, salva nota no Expert Brain, e atualiza cross-links nos posts relacionados. TRIGGER quando Claude ou Eric pedir "publica o post", "faz o deploy do artigo", "sobe o post" após revisão aprovada.
 ---
 
 # Agente Publisher Blog — Expert Integrado
@@ -24,6 +24,15 @@ Post deve ter sido revisado pelo `agente-revisor-blog` com veredicto APROVADO ou
 3. `related`: lista de slugs dos posts relacionados (pra cross-link inverso)
 
 ## Pipeline de publicação
+
+### Passo 0: Atualizar o repo local
+
+```bash
+cd C:\repos\expertintegrado-blog
+git pull --ff-only
+```
+
+Dono trabalha multi-máquina: sempre puxar antes de editar arquivo (post novo e posts relacionados), senão o commit pode divergir ou sobrescrever mudança feita em outra máquina.
 
 ### Passo 1: Salvar arquivo MDX
 
@@ -51,17 +60,28 @@ git push
 
 Verificar que o push foi bem-sucedido antes de continuar.
 
-### Passo 3: Aguardar Vercel deploy
+### Passo 3: Deploy manual na Vercel
 
-Aguardar ~60s após o push. Então verificar via Playwright:
-```
-https://expertintegrado.com.br/blog/<slug>
+O blog NÃO tem auto-deploy no push. É preciso rodar o deploy manualmente:
+
+```bash
+cd C:\repos\expertintegrado-blog
+npx vercel deploy --prod --yes --token "<token>"
 ```
 
-Verificar:
-- HTTP 200 ✓
-- Título aparece na página
-- CSS carregou (sem layout quebrado)
+Token: item 1Password `Token_Vercel_Produto_Claude_Eric` (`op read "op://Agentes Eric/Token_Vercel_Produto_Claude_Eric/credential"` ou equivalente). Não usar `VERCEL_API_TOKEN` genérico, ele não acessa o team do blog.
+
+**Verificar que o post NOVO está no ar (não só que o site responde 200, isso dá falso positivo porque o build antigo também responde 200):**
+
+```bash
+curl -sL -o /dev/null -w "%{http_code}" --max-time 30 https://expertintegrado.com.br/blog/<slug>
+```
+
+Isso sozinho não prova nada se o slug ainda não existir no build anterior e o deploy falhar silenciosamente. Por isso, confirmar TAMBÉM um dos dois:
+- Grep do slug no sitemap: `curl -sL --max-time 30 https://expertintegrado.com.br/sitemap.xml | grep <slug>` (se aparecer, o build novo está publicado).
+- Ou abrir a página via Playwright e checar que o `<title>` renderizado bate com o título do post novo (não com um post antigo).
+
+Se depois de ~2min do deploy o slug não aparecer no sitemap nem a página bater o título esperado: NÃO reportar sucesso. Reportar "deploy não confirmado" e investigar `vercel logs` antes de tentar de novo.
 
 ### Passo 4: Atualizar cross-links nos posts relacionados
 
@@ -95,15 +115,9 @@ Cross-links atualizados: <lista>",
 )
 ```
 
-### Passo 6: Atualizar index de publicados
+### Nota sobre index de publicados
 
-Verificar se existe `outputs/blog-publicados-2026.md` no repo expert-brain.
-Se não existe: criar.
-Se existe: adicionar linha:
-
-```
-| <#> | <slug> | <pillar> | <tipo> | <pubDate> | https://expertintegrado.com.br/blog/<slug> |
-```
+Não existe um passo de "atualizar outputs/blog-publicados-2026.md no repo expert-brain": o Expert Brain é um MCP (grafo de conhecimento em Cloudflare), não um repositório git, não tem arquivo pra editar. O registro do post publicado é a própria nota salva no Passo 5 (`mcp__expert-brain__save_note`); ela já funciona como índice de publicados (consultável via `mcp__expert-brain__recall`). Não há passo 6.
 
 ## Relatório de publicação
 
@@ -113,7 +127,7 @@ Ao final, reportar:
 ✓ Publicado: <slug>
 URL: https://expertintegrado.com.br/blog/<slug>
 Git: <commit hash>
-Vercel: OK (HTTP 200)
+Vercel: OK (slug confirmado no sitemap / título confere)
 Brain: nota <id>
 Cross-links: <lista de slugs atualizados>
 ```
@@ -121,7 +135,7 @@ Cross-links: <lista de slugs atualizados>
 ## Como usar
 
 ```
-/lab:agente-publisher-blog
+/marketing:agente-publisher-blog
 
 Slug: <slug>
 Related: [<slug1>, <slug2>, ...]
@@ -135,8 +149,9 @@ O agente executa o pipeline completo e reporta resultado.
 
 | Erro | Ação |
 |---|---|
+| Git pull falha (conflito) | Investigar conflito, resolver antes de editar qualquer arquivo |
 | Git push falha | Investigar conflito, resolver, retomar do push |
-| Vercel HTTP 404 | Verificar build logs, checar frontmatter do MDX |
-| Vercel HTTP 500 | Checar erros de build (import inválido, sintaxe MDX) |
+| Slug não aparece no sitemap após deploy | Checar `vercel logs`, checar frontmatter do MDX, rodar deploy de novo |
+| Deploy falha (build error) | Checar erros de build (import inválido, sintaxe MDX) via `vercel logs` |
 | Brain timeout | Tentar novamente (Brain D1 eventually consistent) |
 | Arquivo relacionado não existe | Skip cross-link, registrar no relatório como pendente |

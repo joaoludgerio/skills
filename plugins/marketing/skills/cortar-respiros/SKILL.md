@@ -10,6 +10,11 @@ allowed-tools: Read, Bash
 Remove os trechos de silêncio (respiros, pausas) de um vídeo gravado, gerando um MP4 mais corrido
 sem perder a sincronia. Roda o `auto-editor` (que trabalha sobre o FFmpeg) e reporta o antes/depois.
 
+## Pré-requisitos
+- `auto-editor` instalado: `pip install auto-editor`.
+- `ffmpeg` e `ffprobe` no PATH.
+- Conferir antes de rodar o script (se faltar, o erro só aparece na hora da execução).
+
 ## Como usar
 1. Rodar o script com o caminho do vídeo:
    ```bash

@@ -1,7 +1,6 @@
 ---
 name: criar-post-blog
 description: "[DEPRECATED 29/06/2026 — substituída pelo pipeline modular de blog: agente-draft-blog -> agente-revisor-blog -> agente-publisher-blog (+ gerar-hero-blog pra capa). NÃO ATIVAR esta skill; ela não dispara mais por gatilho. Mantida apenas como referência/rollback até o pipeline validar em produção.] (legado) Escrevia um post completo no blog da Expert Integrado (expertintegrado.com.br/blog) na voz do Eric e estrutura GEO 2026, criava o .mdx no repo Astro e fazia deploy na Vercel."
-command: "criar-post-blog"
 argument-hint: "[tema do post] (opcional — a skill pergunta o resto)"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch, mcp__expert-brain__recall
 ---

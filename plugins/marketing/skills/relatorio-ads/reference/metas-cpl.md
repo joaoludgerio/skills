@@ -33,5 +33,7 @@ Se o objetivo da campanha não estiver na tabela, **não invente limite** — re
 - Nunca sugerir matar mais de 5 anúncios de uma vez sem destacar.
 - Todo motivo cita o número que disparou a regra.
 
-> Baseline/contexto completo continua em `playbooks/trafego-meta-ads.md`. Esta tabela é a fonte
-> de verdade dos **limites por produto**; o playbook é a fonte das regras universais e da operação.
+> Esta tabela já é a fonte de verdade dos **limites por produto** e das **regras universais**
+> (seção acima), tudo que a skill precisa pra rodar. O playbook completo (`playbooks/trafego-meta-ads.md`,
+> contexto e histórico estendidos) não faz parte deste plugin; ele vive no repo separado
+> `joaoludgerio/expert-automacoes-marketing`, pra quem quiser aprofundar.

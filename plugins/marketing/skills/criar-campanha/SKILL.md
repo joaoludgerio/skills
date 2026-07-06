@@ -106,6 +106,13 @@ Siga `reference/criativos.md`.
 
 Siga `reference/meta-config.md` à risca. Resumo:
 
+0. **Gate: confira se o MCP de Meta Ads está configurado.** Antes de chamar qualquer tool
+   `ads_*` (`ads_get_ad_accounts`, `ads_create_campaign` etc.), verifique se elas existem no
+   ambiente atual. Se não existirem (MCP não configurado neste projeto/`.mcp.json`), **pare a
+   Fase 4** e avise o João: explique que o MCP de Meta Ads precisa ser configurado antes de
+   publicar a campanha, e deixe pronto tudo o que já foi produzido (estratégia, copy, criativos)
+   pra retomar assim que o MCP estiver disponível. Não tente contornar chamando a Graph API na
+   mão pra criar campanha/conjunto/anúncio, isso não é o que a skill promete (estrutura via MCP).
 1. **Descubra os IDs frescos** (não confie só na memória — token/IDs mudam): `ads_get_ad_accounts`,
    `ads_get_ad_account_pages`, `ads_get_ig_accounts`, e se for conversão, `ads_get_datasets` (pixel).
    Leia `min_daily_budget_cents` e a moeda (BRL → budget em **centavos**).

@@ -92,8 +92,8 @@ Livre. Escolher cores que combinam com o contexto do pedido.
 
 **Script:** `~/.claude/skills/imagem/scripts/image_gen.py` (lê OPENAI_API_KEY do env ou 1Password automaticamente)
 
-**Python no Windows:** `C:/Users/ericl/AppData/Local/Programs/Python/Python313/python.exe`
-**Temp no Windows:** `C:/tmp/` (não usar `/tmp/` — não existe no Windows)
+**Python:** usar `python` resolvido via PATH (no Windows pode ser `py` ou `python`, dependendo da instalação).
+**Temp no Windows:** `C:/tmp/` (não usar `/tmp/`, não existe no Windows)
 
 **Fluxo para foto do Eric:**
 ```bash
@@ -103,7 +103,7 @@ gh api repos/ericlucianoferreira/agent-assets/contents/fotos/eric/ARQUIVO.jpg \
   -H "Accept: application/vnd.github.raw" > C:/tmp/eric_ref.jpg
 
 # 2. Gerar/editar
-PYTHON="C:/Users/ericl/AppData/Local/Programs/Python/Python313/python.exe"
+PYTHON="python"
 "$PYTHON" ~/.claude/skills/imagem/scripts/image_gen.py edit \
   --model gpt-image-2 \
   --image C:/tmp/eric_ref.jpg \
@@ -116,7 +116,7 @@ PYTHON="C:/Users/ericl/AppData/Local/Programs/Python/Python313/python.exe"
 
 **Geração sem referência (banners, ilustrações SEM rosto):**
 ```bash
-PYTHON="C:/Users/ericl/AppData/Local/Programs/Python/Python313/python.exe"
+PYTHON="python"
 "$PYTHON" ~/.claude/skills/imagem/scripts/image_gen.py generate \
   --model gpt-image-2 \
   --prompt "DESCRIÇÃO_TÉCNICA" \
@@ -213,3 +213,4 @@ Se Eric disser "usa Gemini", "usa OpenAI", ou "usa Flash" — seguir a preferên
 
 - **v1.0 (13/05/2026)**: skill criada. Dois backends (OpenAI primário, Gemini fallback). Catálogo de fotos via repo agent-assets. Paleta Expert e Super SDR. Formatos nomeados (story, YouTube, quadrado, 4x5, horizontal). Testada com Eric pirata nos dois backends.
 - **v1.1 (13/05/2026)**: script `image_gen.py` criado em `~/.claude/skills/imagem/scripts/` (antes referenciava path de VPS inexistente no Windows). SKILL.md atualizado com Python path correto do Windows e temp folder `C:/tmp/`.
+- **v1.2 (06/07/2026)**: removido o caminho hardcoded `C:/Users/ericl/AppData/Local/Programs/Python/Python313/python.exe` (só existia na máquina do Eric). Agora usa `python` resolvido via PATH, igual reels-studio.

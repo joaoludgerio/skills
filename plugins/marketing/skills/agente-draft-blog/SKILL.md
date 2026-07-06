@@ -28,6 +28,15 @@ Recebe um outline com:
 - `cta`: título e descrição do InlineCta
 - `pubDate`: data de publicação (YYYY-MM-DD)
 
+Se o outline vier incompleto (faltar `h2s`, `pillar` ou `tipo`), pergunte antes de escrever. Não invente estrutura de post a partir de um pedido solto ("escreve um post sobre X") sem antes formar o outline mínimo com o Eric.
+
+## Passo 0: Pesquisa e fonte dos fatos (antes de escrever)
+
+A regra de densidade factual (abaixo) exige 1+ fato por H2. Nunca inventar número, nome ou resultado. Antes de escrever:
+1. `mcp__expert-brain__recall` com o tema do post, pra puxar decisões/números/posições que o Eric já registrou. É a fonte preferencial pra voz autêntica.
+2. Se faltar dado atual (estatística, preço, comparação de ferramenta), usar `WebSearch`/`WebFetch` e citar a fonte nomeada inline no texto.
+3. Se mesmo assim não houver fato pra alguma seção, não inventar: deixar `[preencher: <o que falta>]` no lugar do dado e avisar no relatório final, nunca no meio do H2 como se fosse texto normal.
+
 ## Output
 
 Arquivo MDX completo, pronto pra salvar em `src/content/blog/<slug>.mdx`.
@@ -83,6 +92,13 @@ Cada H2 precisa de ao menos UMA de:
 5-8 perguntas que o ICP faz no ChatGPT/Perplexity sobre o tema.
 Cada resposta: 60-120 palavras, autocontida.
 Formatar como `**Pergunta?**` seguido do parágrafo de resposta.
+
+## Validar `related` contra posts reais
+
+Nunca inventar slug em `related`. Antes de fechar o frontmatter:
+1. Confirmar que o repo `C:\repos\expertintegrado-blog` está clonado na máquina atual.
+2. Se estiver: `ls src/content/blog/` (dentro do repo) e escolher 2-3 slugs que existem de fato ali, coerentes com o tema.
+3. Se o repo NÃO estiver clonado nesta máquina (ex: máquina do Eric é onde o repo mora): não inventar slug nenhum. Avisar no relatório final que `related` ficou vazio/provisório e precisa ser preenchido com slugs reais na máquina onde o repo existe.
 
 ## Estrutura MDX
 
@@ -179,14 +195,14 @@ H2: O que aprendi / depoimento
 
 ## Datas de publicação
 
-Distribuir ao longo de 2026-06-24 a 2026-11-30.
 Cadência: ~3 posts/semana (seg, qua, sex).
-Usar datas sequenciais a partir de 2026-06-25.
+
+Antes de fixar `pubDate`, checar as datas já usadas pelos posts existentes (se o repo `C:\repos\expertintegrado-blog` estiver clonado nesta máquina: `grep -h pubDate src/content/blog/*.mdx`) e escolher a próxima data livre na cadência seg/qua/sex, sem colidir com post já publicado ou agendado. Se o repo não estiver disponível nesta máquina, perguntar ao Eric qual a próxima data livre em vez de supor um intervalo fixo.
 
 ## Como usar
 
 ```
-/lab:agente-draft-blog
+/marketing:agente-draft-blog
 
 [outline do post aqui]
 ```

@@ -62,7 +62,7 @@ Relatório estruturado com:
 - Densidade factual: cada H2 tem ao menos 1 número, nome ou resultado?
 - FAQ presente? Tem 5+ perguntas? Respostas 60-120 palavras?
 - Extensão adequada pro tipo? (satélite 1200+, pilar 2500+, versus 1800+, case 1500+)
-- `related` no frontmatter: aponta pra slugs que existem?
+- `related` no frontmatter: aponta pra slugs que existem? Checar rodando `ls src/content/blog/` no repo `C:\repos\expertintegrado-blog` (se o repo não estiver clonado nesta máquina, sinalizar como "não verificável nesta máquina" em vez de assumir que os slugs existem).
 
 ### Dimensão 4: UX MOBILE (peso 10%)
 
@@ -73,13 +73,19 @@ Relatório estruturado com:
 - H2 muito longo (mais de 80 chars) → sugerir versão curta
 - Tabela sem cabeçalho ou com mais de 12 linhas → sinalizar
 
+## O que conta como violação GRAVE (definição objetiva)
+
+Uma violação é **grave** quando é qualquer item da Dimensão 1 (Voz, red flag listado) OU qualquer item da Dimensão 2 (Factualidade). Ou seja: em-dash, "tu/teu/tua", hype vazio, abertura/fechamento clichê, headline clichê, tom formal, softening excessivo, claim sem fonte, dado desatualizado, nome sem autorização, afirmação que pode ter mudado, e placeholder não preenchido são todos GRAVES.
+
+Uma violação é **normal** (não grave) quando é item da Dimensão 3 (GEO/SEO) ou da Dimensão 4 (UX Mobile): H2 não é pergunta, densidade factual fraca, FAQ curto, extensão fora do range, parágrafo longo, tabela sem cabeçalho, etc.
+
 ## Critérios de veredicto
 
 | Veredicto | Critério |
 |---|---|
-| APROVADO | Score médio ≥ 7.0 em todas as dimensões, nenhum bloqueador |
-| RETRABALHO MENOR | Score médio ≥ 5.5, sem bloqueador de factualidade, ≤5 violações |
-| RETRABALHO MAIOR | Score médio < 5.5 OU placeholder não preenchido OU >5 violações graves |
+| APROVADO | Score médio ≥ 7.0 em todas as dimensões, nenhuma violação grave |
+| RETRABALHO MENOR | Score médio ≥ 5.5, zero violações graves, ≤5 violações normais |
+| RETRABALHO MAIOR | Score médio < 5.5 OU placeholder não preenchido OU 1+ violação grave OU >5 violações no total |
 
 ## Formato do relatório
 
@@ -109,7 +115,7 @@ Relatório estruturado com:
 ## Como usar
 
 ```
-/lab:agente-revisor-blog
+/marketing:agente-revisor-blog
 
 [MDX completo do post aqui]
 ```

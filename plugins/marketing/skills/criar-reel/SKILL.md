@@ -24,9 +24,16 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 
 ### 1. Pauta e fatos
 - **Checagem anti-repetição (ANTES de qualquer coisa):** consultar o registro de reels já
-  produzidos e avisar se a pauta pedida já foi coberta:
-  `PYTHONUTF8=1 python "../viral-pra-reel/scripts/registro_reels.py" --sync <tmp>.md`
-  (caminho relativo à pasta desta skill; leitura pública) e, se disponível, a Biblioteca via
+  produzidos e avisar se a pauta pedida já foi coberta (a pasta do reel ainda não existe nesse
+  ponto, por isso o destino é um arquivo temporário em `$HOME/Downloads/_criar-reel-tmp/`; o
+  registro definitivo do vídeo entra depois, na pasta do reel):
+  ```bash
+  SKILLS_DIR=$(ls -d "$HOME/.claude/plugins/cache/expertintegrado/marketing"/*/skills | sort -V | tail -1)
+  mkdir -p "$HOME/Downloads/_criar-reel-tmp"
+  PYTHONUTF8=1 python "$SKILLS_DIR/viral-pra-reel/scripts/registro_reels.py" --sync "$HOME/Downloads/_criar-reel-tmp/registro-reels-sync.md"
+  ```
+  (`$SKILLS_DIR` resolve o plugin instalado e funciona de qualquer pasta; leitura pública, sem
+  custo). Consultar também, se disponível, a Biblioteca via
   MCP (`biblioteca_listar_conteudos`). Tema já coberto: avisar o usuário com o slug antigo e
   só seguir se ele confirmar (ou se trouxer ângulo genuinamente novo). Ao final da produção,
   registrar a linha nova com `registro_reels.py --add` (mesmo formato do viral-pra-reel).
@@ -38,8 +45,14 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
 
 ### 2. Roteiro (voz do Eric)
 - **Sincronizar os padrões do próprio perfil PRIMEIRO (sempre, mesmo fora do viral-pra-reel):**
-  `PYTHONUTF8=1 python "../viral-pra-reel/scripts/registro_reels.py" --file padroes-perfil.md --sync <tmp>.md`
-  (caminho relativo à pasta desta skill; leitura pública, sem custo). Ler as "3 regras
+  ```bash
+  SKILLS_DIR=$(ls -d "$HOME/.claude/plugins/cache/expertintegrado/marketing"/*/skills | sort -V | tail -1)
+  mkdir -p "$HOME/Downloads/_criar-reel-tmp"
+  PYTHONUTF8=1 python "$SKILLS_DIR/viral-pra-reel/scripts/registro_reels.py" --file padroes-perfil.md --sync "$HOME/Downloads/_criar-reel-tmp/padroes-perfil.md"
+  ```
+  (`$SKILLS_DIR` resolve o plugin instalado e funciona de qualquer pasta; leitura pública, sem
+  custo). Mesma pasta temporária da etapa 1, já que a pasta do reel ainda não existe nesse ponto.
+  Ler as "3 regras
   acionáveis" no fim do arquivo — são dados reais do que performou/flopou com ESTE público,
   mais recentes que o esqueleto abaixo, e têm prioridade se divergirem dele.
 - Ler **`references/estrutura-viral.md`** (padrão dos vídeos que estouraram) e seguir o template
@@ -47,9 +60,14 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   pergunta hipotética ou conta abstrata de tempo — ver a seção 1 do arquivo) → diagnóstico com
   número ("ninguém te conta") → batismo ("isso tem nome: X") → solução nomeada com artefato →
   CTA de palavra-chave simples já repetida no vídeo (nunca "salva e me segue" como CTA
-  principal). Alvo **50-66s**. **Medida objetiva: o cenas.txt inteiro soma 900-980 caracteres**
-  (conferir com `wc -c`): a voz do Eric fala ~16 chars/s reais, acima de 1000 chars o vídeo
-  passa de 66s. Cortar ANTES do gate 2.5.
+  principal). Alvo **50-66s**. **Medida objetiva (regra operacional): o cenas.txt inteiro soma
+  900-980 caracteres** (conferir com `wc -c`), faixa validada em produção pra caber no alvo de
+  duração. O código usa `CHARS_PER_SECOND = 17.5` (constante definida em
+  `scripts/elevenlabs_heygen.py`, calibrada 11/06/2026, fonte da verdade) pra agrupar as cenas em
+  blocos; o vídeo inteiro já pronto (com as pausas entre blocos somadas) roda mais perto de
+  ~16 chars/s reais medidos em produção, por isso quem manda é a contagem de caracteres
+  (900-980), não uma conta feita na hora com uma taxa de chars/s. Acima de 1000 chars o vídeo
+  tende a passar de 66s. Cortar ANTES do gate 2.5.
 - A textura da fala vem de `references/voz-eric.md` (tom, blacklist, frases inteiras).
 - Entregar também a **legenda do post** (ângulo diferente do roteiro) + hashtags.
 - **Quebrar o roteiro em CENAS de 1-2 frases** (arquivo `cenas.txt`, uma cena por linha). Script

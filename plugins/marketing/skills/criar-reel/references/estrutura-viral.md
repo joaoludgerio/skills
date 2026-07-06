@@ -70,7 +70,7 @@ zero lead. **Regra: sempre CTA de comentar uma palavra**, seguindo esta fórmula
 
 ## Duração alvo: 50 a 66 segundos
 Faixa observada nos 5 hits: 44,5s a 79,4s; os 2 campeões de comentário por view (8,58% e
-6,84%) ficaram em 51,8s e 65,9s. Mirar 50-66s — não 40-60s (ajuste vs. versões antigas deste
+6,84%) ficaram em 51,8s e 65,9s. Mirar 50-66s, não 40-60s (ajuste vs. versões antigas deste
 arquivo). Isso é o alvo de `cenas.txt` em 900-980 caracteres já usado na skill.
 
 ## Template "Insider de IA" (esqueleto do roteiro)

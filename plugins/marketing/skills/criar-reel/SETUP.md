@@ -12,6 +12,14 @@ adaptá-la pra ESTE usuário: dependências, chaves, avatar, voz e tom. Siga as 
   Os scripts assumem `C:\MCPs\` no Windows (constantes `ENV_PATH`/`DEFAULT_*` no topo de
   cada script). Se o usuário preferir outra pasta — ou estiver em macOS/Linux — **edite as
   constantes nos scripts** pra apontar pro caminho escolhido. São poucas linhas, todas no topo.
+- **Dependência da skill irmã `viral-pra-reel`:** as etapas 1 e 2 do `SKILL.md` chamam
+  `../viral-pra-reel/scripts/registro_reels.py` (caminho relativo, saindo da pasta desta skill)
+  pra sincronizar o registro anti-repetição e os `padroes-perfil.md`. Numa instalação
+  STANDALONE (só `criar-reel`, sem `viral-pra-reel` instalada), esse caminho relativo não existe
+  e o comando falha. Nesse caso: (a) copiar `registro_reels.py` pra dentro de `scripts/` desta
+  skill e ajustar o caminho nas etapas 1 e 2 do `SKILL.md`, ou (b) se o usuário não quiser esse
+  controle de repetição, remover as duas chamadas do `SKILL.md` e avisar que a checagem
+  anti-repetição fica manual. Confirme com o usuário antes de escolher.
 
 ## Fase 1 — Dependências de sistema
 

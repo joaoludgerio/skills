@@ -12,14 +12,23 @@ nada entra em entrega até o João dar play no Gerenciador.
 | Conta Instagram | (descobrir) | `ads_get_ig_accounts` → `instagram_user_id` |
 | Pixel/Dataset (p/ conversão) | (descobrir) | `ads_get_datasets` |
 | App ID | `2266676070529845` (GRAPH API LOVABLE) | — (só p/ upload Graph API) |
-| Token Graph API | `.env.meta` (expirava **09/06/2026** → provavelmente vencido) | renovar se for usar upload |
+| Token Graph API | `.env.meta` (expirou em **09/06/2026**, VENCIDO desde então) | renovar antes de usar upload direto |
 | Moeda / mín. diário | BRL / ler `min_daily_budget_cents` | `ads_get_ad_accounts` |
 
 > O **MCP tem auth própria** (não usa o `.env.meta`) — `ads_create_*` funcionam mesmo com o token do
-> `.env.meta` vencido. O `.env.meta` só importa pro **upload de mídia via Graph API** (abaixo).
+> `.env.meta` vencido. O `.env.meta` só importa pro **upload de mídia via Graph API (Via A)** abaixo.
+
+> ⚠️ **Token vencido, é fato, não hipótese.** O token do `.env.meta` expirou em 09/06/2026; hoje já
+> passou disso, então ele está vencido com certeza. Se o plano da campanha exigir upload direto via
+> Graph API (Via A), o **passo zero é renovar o token** (Gerenciador de Negócios → token de sistema)
+> antes de tentar qualquer coisa; não tente a Via A sem renovar primeiro, vai falhar. Por isso a via
+> padrão desta skill é a **Via B (URL pública)** ou a **Via C (promover post existente)** abaixo, que
+> não dependem do `.env.meta`. Só use a Via A depois de confirmar com o João que o token foi renovado.
 
 ## Passo 0 — descoberta (sempre, no início da Fase 4)
 
+0. Confirme se o MCP de Meta Ads está configurado neste ambiente (veja o gate no `SKILL.md`, Fase 4).
+   Se não estiver, pare aqui e não siga os passos abaixo.
 1. `ads_get_ad_accounts` → confirme o ID numérico, a moeda e `min_daily_budget_cents`.
 2. `ads_get_ad_account_pages` → page_id (e se for lead form, confira `leadgen_tos_accepted=true`).
 3. `ads_get_ig_accounts` → `instagram_user_id` (sem ele o criativo NÃO entrega no Instagram).
@@ -72,8 +81,10 @@ Tudo em centavos. R$25,00 = `2500`; R$50,00 = `5000`; R$350 lifetime = `35000`. 
 
 `ads_create_creative` precisa de `image_hash`/`video_id` (ou URL pública). Duas vias:
 
-### Via A — Graph API com o token do `.env.meta` (dark post, recomendado)
-Use Bash + o token. **Imagem** (retorna `hash`):
+### Via A — Graph API com o token do `.env.meta` (dark post; exige token renovado)
+O token do `.env.meta` está vencido desde 09/06/2026. Só use esta via depois de o João confirmar que
+renovou o token; do contrário, use a Via B ou a Via C abaixo. Use Bash + o token. **Imagem** (retorna
+`hash`):
 ```bash
 curl -s -F "filename=@criativos/peca.png" \
   -F "access_token=$META_TOKEN" \
@@ -86,10 +97,10 @@ curl -s -F "source=@criativos/video.mp4" \
   "https://graph.facebook.com/v21.0/act_1188676845428776/advideos"
 ```
 Carregue `META_TOKEN` do `.env.meta`. Vídeo demora a processar — aguarde ficar `ready` antes de criar
-o criativo. **Se o token estiver vencido**, peça ao João pra renovar (Gerenciador de Negócios → token
-de sistema) antes de prosseguir.
+o criativo. **O token está vencido**: peça ao João pra renovar (Gerenciador de Negócios → token de
+sistema) antes de prosseguir, esse é o passo zero desta via.
 
-### Via B — imagem por URL pública
+### Via B — imagem por URL pública (via padrão pra imagem, não depende de token)
 Se a imagem já estiver hospedada (Cloudinary, biblioteca etc.), passe `image_url` direto no
 `ads_create_creative` e pule o upload da imagem. (Vídeo não tem essa via — precisa de `video_id`.)
 
