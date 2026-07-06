@@ -40,7 +40,7 @@
       "name": "marketing",
       "source": "./plugins/marketing",
       "description": "Skills de marketing, conteudo e trafego: orquestrar-conteudo, agente-draft-blog, agente-revisor-blog, agente-publisher-blog, gerar-hero-blog, demonstracao-agente, criar-reel, reels-studio, video, editar-video-motion, cortar-respiros, gerar-srt, carrossel-studio, imagem, criar-script, criar-campanha, relatorio-ads, criar-webinario, ig-competitor-research, pauta-semanal, tweet-print. (criar-post-blog deprecado, substituido pelo pipeline de blog.)",
-      "version": "2.15.0",
+      "version": "2.15.1",
       "category": "productivity",
       "tags": [
         "marketing",

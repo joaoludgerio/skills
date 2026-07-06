@@ -26,6 +26,7 @@ Credenciais: C:\\MCPs\\heygen.env e C:\\MCPs\\elevenlabs.env.
 Saida: <out-dir>/audio-NN.mp3, <out-dir>/block-NN.mp4 e o concat final.
 """
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -194,6 +195,63 @@ def heygen_upload_audio(mp3, key):
     return resp["data"]["id"]
 
 
+def md5_arquivo(path):
+    """MD5 do conteudo do arquivo (usado pra saber se o audio-NN.mp3 mudou entre runs:
+    job antigo de OUTRO audio nao pode ser reaproveitado)."""
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def carregar_jobs(path):
+    """Le jobs.json (se existir) e devolve dict {n: job} pra retomada apos crash/queda
+    no meio da FASE 2/3 (job no HeyGen ja foi pago, nao pode se perder)."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            lista = json.load(f)
+        return {j["n"]: j for j in lista}
+    except (json.JSONDecodeError, KeyError, OSError) as e:
+        print(f"[jobs] jobs.json ilegivel ({e}), ignorando e comecando do zero", flush=True)
+        return {}
+
+
+def salvar_jobs(path, jobs_all):
+    """Persiste o estado dos jobs pagos do HeyGen em disco (escrita atomica via arquivo
+    temporario + replace, pra nao corromper o jobs.json se o processo cair no meio)."""
+    lista = sorted(jobs_all.values(), key=lambda j: j["n"])
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(lista, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
+
+
+def heygen_submeter_bloco(n, mp3, hg_key, avatar, bg, title):
+    """Sobe o audio do bloco e cria o job de lip-sync no HeyGen. Retorna o registro do
+    job (mesmo formato salvo em jobs.json)."""
+    asset = heygen_upload_audio(mp3, hg_key)
+    body = {
+        "type": "avatar",
+        "avatar_id": avatar,
+        "audio_asset_id": asset,
+        "resolution": "1080p",
+        "aspect_ratio": "9:16",
+        "engine": {"type": "avatar_v"},
+        "title": f"{title} - bloco {n:02d}",
+        "remove_background": True,
+        "background": {"type": "color", "value": bg},
+        "output_format": "mp4",
+    }
+    resp = heygen_call("POST", "/v3/videos", hg_key, body)
+    vid = resp["data"]["video_id"]
+    print(f"[bloco {n}] asset={asset} video_id={vid}", flush=True)
+    return {"n": n, "video_id": vid, "asset_id": asset, "done": False, "url": None,
+            "audio_md5": md5_arquivo(mp3)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenes-file")
@@ -304,44 +362,73 @@ def main():
         return
 
     # FASE 2 — upload + lip-sync no HeyGen (todas em paralelo do lado deles)
+    # jobs.json guarda o video_id de cada bloco: sao jobs PAGOS (~US$4/min), um
+    # crash/queda no meio do polling de ate 45min nao pode fazer um re-run pagar de novo.
+    jobs_path = os.path.join(args.out_dir, "jobs.json")
+    jobs_all = carregar_jobs(jobs_path)
+
     jobs = []
+    resumidos = set()
     for n in sorted(audios):
-        asset = heygen_upload_audio(audios[n], hg_key)
-        body = {
-            "type": "avatar",
-            "avatar_id": args.avatar,
-            "audio_asset_id": asset,
-            "resolution": "1080p",
-            "aspect_ratio": "9:16",
-            "engine": {"type": "avatar_v"},
-            "title": f"{args.title} - bloco {n:02d}",
-            "remove_background": True,
-            "background": {"type": "color", "value": args.bg},
-            "output_format": "mp4",
-        }
-        resp = heygen_call("POST", "/v3/videos", hg_key, body)
-        vid = resp["data"]["video_id"]
-        jobs.append({"n": n, "video_id": vid, "done": False, "url": None})
-        print(f"[bloco {n}] asset={asset} video_id={vid}", flush=True)
+        audio_md5 = md5_arquivo(audios[n])
+        prev = jobs_all.get(n)
+        if prev and prev.get("video_id") and prev.get("audio_md5") == audio_md5:
+            print(f"[bloco {n}] retomando job pago de um run anterior (video_id={prev['video_id']})", flush=True)
+            job = dict(prev)
+            job["done"], job["url"] = False, None
+            resumidos.add(n)
+        else:
+            if prev and prev.get("audio_md5") != audio_md5:
+                print(f"[bloco {n}] audio foi regenerado desde o ultimo job, resubmetendo", flush=True)
+            job = heygen_submeter_bloco(n, audios[n], hg_key, args.avatar, args.bg, args.title)
+        jobs.append(job)
+        jobs_all[n] = job
+        salvar_jobs(jobs_path, jobs_all)
 
     t0 = time.time()
     while not all(j["done"] for j in jobs):
         time.sleep(20)
-        for j in jobs:
+        for i, j in enumerate(jobs):
             if j["done"]:
                 continue
-            st = heygen_call("GET", f"/v3/videos/{j['video_id']}", hg_key)
+            n = j["n"]
+            try:
+                st = heygen_call("GET", f"/v3/videos/{j['video_id']}", hg_key)
+            except (urllib.error.HTTPError, urllib.error.URLError) as e:
+                if n not in resumidos:
+                    raise
+                # job retomado que nao existe mais no HeyGen (expirou/nunca ficou pronto):
+                # descarta o registro antigo e resubmete so este bloco.
+                print(f"[bloco {n}] job retomado nao respondeu ({e}), descartando e resubmetendo", flush=True)
+                job = heygen_submeter_bloco(n, audios[n], hg_key, args.avatar, args.bg, args.title)
+                jobs[i] = job
+                jobs_all[n] = job
+                resumidos.discard(n)
+                salvar_jobs(jobs_path, jobs_all)
+                continue
             data = st.get("data", st)
             status = data.get("status")
             if status == "completed":
                 j["done"], j["url"] = True, data.get("video_url")
-                print(f"[bloco {j['n']}] completed ({int(time.time()-t0)}s)", flush=True)
+                salvar_jobs(jobs_path, jobs_all)
+                print(f"[bloco {n}] completed ({int(time.time()-t0)}s)", flush=True)
             elif status == "failed":
-                sys.exit(f"[bloco {j['n']}] FAILED: {json.dumps(data.get('error'))}")
+                if n in resumidos:
+                    print(f"[bloco {n}] job retomado FAILED ({json.dumps(data.get('error'))}), "
+                          f"descartando e resubmetendo", flush=True)
+                    job = heygen_submeter_bloco(n, audios[n], hg_key, args.avatar, args.bg, args.title)
+                    jobs[i] = job
+                    jobs_all[n] = job
+                    resumidos.discard(n)
+                    salvar_jobs(jobs_path, jobs_all)
+                else:
+                    salvar_jobs(jobs_path, jobs_all)
+                    sys.exit(f"[bloco {n}] FAILED: {json.dumps(data.get('error'))}")
         pend = sum(1 for j in jobs if not j["done"])
         if pend:
             print(f"   ...{pend} bloco(s) pendente(s) ({int(time.time()-t0)}s)", flush=True)
         if time.time() - t0 > 2700:
+            salvar_jobs(jobs_path, jobs_all)
             sys.exit("timeout de 45 min no polling")
 
     # FASE 3 — download + re-verificacao + concat

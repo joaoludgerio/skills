@@ -7,13 +7,15 @@ o asset PAGO que permite recompor de graca no futuro) e <slug>-textos.zip (cenas
 roteiro.md, legenda-post.md, .srt, thumb). B-rolls/frames/blocos NAO sobem (regeneraveis).
 
 Uso:
-  python arquivar_reel.py --reel <pasta> [--slug nome-do-reel] [--apagar]
+  python arquivar_reel.py --reel <pasta> [--slug nome-do-reel] [--final video-final-x.mp4] [--apagar]
   python arquivar_reel.py --baixar <slug> --out <pasta>     # recupera um reel arquivado
 
 Requer `gh` autenticado com acesso ao repo. --apagar so remove a pasta depois de
-verificar que os 3 assets subiram com o tamanho certo.
+verificar que os 3 assets subiram com o tamanho certo. Sem --final, escolhe o
+video-final-*.mp4 mais recente por data de modificacao; se houver mais de um
+candidato e --apagar tiver sido passado, a exclusao e recusada por ambiguidade.
 """
-import argparse, glob, json, os, shutil, subprocess, sys, zipfile
+import argparse, datetime, glob, json, os, shutil, subprocess, sys, zipfile
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -32,6 +34,36 @@ def assets_remotos():
     if code != 0:
         sys.exit(f"sem acesso ao release (gh autenticado? colaborador do repo?): {err[-200:]}")
     return {a["name"]: a["size"] for a in json.loads(out or "[]")}
+
+
+def escolher_final(reel, final_arg=None):
+    """Decide qual video-final-*.mp4 arquivar.
+
+    Se final_arg foi passado (--final), usa ele direto (validando que existe).
+    Senao, pega o mais recente por data de modificacao (nao alfabetico) e avisa
+    quando ha mais de um candidato, listando todos com data/hora.
+    Retorna (caminho_escolhido, ambiguo: bool).
+    """
+    if final_arg:
+        caminho = final_arg if os.path.isabs(final_arg) else os.path.join(reel, final_arg)
+        if not os.path.exists(caminho):
+            sys.exit(f"--final aponta pra arquivo inexistente: {caminho}")
+        return caminho, False
+
+    candidatos = glob.glob(os.path.join(reel, "video-final-*.mp4"))
+    if not candidatos:
+        sys.exit(f"nenhum video-final-*.mp4 em {reel}")
+    candidatos.sort(key=os.path.getmtime, reverse=True)
+    if len(candidatos) == 1:
+        return candidatos[0], False
+
+    escolhido = candidatos[0]
+    print(f"aviso: {len(candidatos)} candidatos a video final em {reel}:", flush=True)
+    for c in candidatos:
+        ts = datetime.datetime.fromtimestamp(os.path.getmtime(c)).strftime("%Y-%m-%d %H:%M:%S")
+        marca = " <- escolhido (mais recente)" if c == escolhido else ""
+        print(f"  {os.path.basename(c)}  ({ts}){marca}", flush=True)
+    return escolhido, True
 
 
 def upload(path, nome):
@@ -54,6 +86,7 @@ def main():
     g.add_argument("--baixar", metavar="SLUG", help="baixa um reel arquivado")
     ap.add_argument("--slug", help="nome no arquivo (default: nome da pasta sem 'reel-')")
     ap.add_argument("--apagar", action="store_true", help="apaga a pasta local apos verificar o upload")
+    ap.add_argument("--final", help="video final a arquivar (relativo a pasta do reel ou absoluto); sem isso, escolhe o video-final-*.mp4 mais recente")
     ap.add_argument("--out", help="pasta destino do --baixar")
     args = ap.parse_args()
 
@@ -69,10 +102,8 @@ def main():
 
     reel = os.path.abspath(args.reel)
     slug = args.slug or os.path.basename(reel).removeprefix("reel-")
-    finais = sorted(glob.glob(os.path.join(reel, "video-final-*.mp4")))
+    final, ambiguo = escolher_final(reel, args.final)
     fala = os.path.join(reel, "heygen", "eric-green.mp4")
-    if not finais:
-        sys.exit(f"nenhum video-final-*.mp4 em {reel}")
     if not os.path.exists(fala):
         sys.exit(f"fala nao encontrada: {fala}")
 
@@ -83,7 +114,7 @@ def main():
             for f in glob.glob(os.path.join(reel, pat)):
                 z.write(f, os.path.basename(f))
     print(f"arquivando '{slug}'...", flush=True)
-    upload(finais[0], f"{slug}-final.mp4")
+    upload(final, f"{slug}-final.mp4")
     upload(fala, f"{slug}-fala.mp4")
     upload(ztmp, f"{slug}-textos.zip")
     os.remove(ztmp)
@@ -91,7 +122,7 @@ def main():
     # verificacao de tamanho antes de qualquer exclusao
     rem = assets_remotos()
     esperado = {
-        f"{slug}-final.mp4": os.path.getsize(finais[0]),
+        f"{slug}-final.mp4": os.path.getsize(final),
         f"{slug}-fala.mp4": os.path.getsize(fala),
     }
     for nome, tam in esperado.items():
@@ -100,6 +131,10 @@ def main():
     print("verificacao de tamanho OK", flush=True)
 
     if args.apagar:
+        if ambiguo and not args.final:
+            print("nada foi apagado: havia mais de um video-final-*.mp4 e nenhum --final foi indicado.", flush=True)
+            print("re-rode com --final <arquivo escolhido> --apagar pra confirmar a exclusao.", flush=True)
+            sys.exit(3)
         shutil.rmtree(reel)
         print(f"pasta local apagada: {reel}", flush=True)
     else:

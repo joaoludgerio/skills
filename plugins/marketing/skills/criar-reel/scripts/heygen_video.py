@@ -75,6 +75,14 @@ def download(url, dest, timeout=120):
             f.write(chunk)
 
 
+def salvar_jobs(path, jobs):
+    """Grava o estado atual dos jobs em disco. Chamar a cada mudanca real (done,
+    url) para que o jobs.json sempre reflita o progresso, permitindo retomar
+    depois de um crash sem resubmeter cenas ja pagas."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(jobs, f, indent=2)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenes-file")
@@ -137,8 +145,8 @@ def main():
 
     # Estado em disco: se o run cair no meio do polling, os video_id ficam
     # registrados e da pra retomar/baixar sem resubmeter (credito ja gasto).
-    with open(os.path.join(args.out_dir, "jobs.json"), "w", encoding="utf-8") as f:
-        json.dump(jobs, f, indent=2)
+    jobs_path = os.path.join(args.out_dir, "jobs.json")
+    salvar_jobs(jobs_path, jobs)
 
     # 2) poll ate todas concluirem
     t0 = time.time()
@@ -153,9 +161,11 @@ def main():
             if status == "completed":
                 j["done"] = True
                 j["url"] = data.get("video_url")
+                salvar_jobs(jobs_path, jobs)
                 print(f"[cena {j['n']}] completed ({int(time.time()-t0)}s)", flush=True)
             elif status == "failed":
                 print(f"[cena {j['n']}] FAILED: {json.dumps(data.get('error'))}", flush=True)
+                salvar_jobs(jobs_path, jobs)
                 sys.exit(1)
         pend = sum(1 for j in jobs if not j["done"])
         if pend:
@@ -196,6 +206,7 @@ def main():
                 data = st.get("data", st)
                 if data.get("status") == "completed":
                     j["url"] = data.get("video_url")
+                    salvar_jobs(jobs_path, jobs)
                     break
                 if data.get("status") == "failed":
                     sys.exit(f"[cena {j['n']}] retry FAILED: {json.dumps(data.get('error'))}")
@@ -208,7 +219,9 @@ def main():
         for j, scene_text in zip(jobs, scenes):
             print(f"baixando cena {j['n']}...", flush=True)
             mp4 = download_and_check(j, scene_text)
-            f.write(f"file '{mp4.replace(os.sep, '/')}'\n")
+            # SEMPRE absoluto: o concat demuxer resolve path relativo em relacao ao
+            # DIRETORIO DA LISTA, entao "heygen/scene-01.mp4" virava heygen/heygen/...
+            f.write(f"file '{os.path.abspath(mp4).replace(os.sep, '/')}'\n")
 
     final = os.path.join(args.out_dir, args.final)
     subprocess.check_call([

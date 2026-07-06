@@ -41,6 +41,13 @@ def ffprobe_dur(path):
     return float(out)
 
 
+def precisa_regerar(derivado, fonte):
+    """True se o derivado nao existe ou esta mais antigo que a fonte (avatar regenerado)."""
+    if not os.path.exists(derivado):
+        return True
+    return os.path.getmtime(derivado) < os.path.getmtime(fonte)
+
+
 def sync_template():
     """Copia o template pro cache persistente (o cache do plugin e apagado em updates)."""
     os.makedirs(os.path.join(CACHE, "src"), exist_ok=True)
@@ -98,8 +105,11 @@ def main():
 
     # 1) chroma key -> WebM com alpha (ffmpeg, params comprovados do compose_reel)
     alpha = os.path.join(reel, "eric-alpha.webm")
-    if not os.path.exists(alpha):
-        print("[1/4] recortando avatar (VP9 alpha, alguns minutos)...", flush=True)
+    if precisa_regerar(alpha, avatar):
+        if os.path.exists(alpha):
+            print("[1/4] eric-alpha.webm mais antigo que o avatar, regerando...", flush=True)
+        else:
+            print("[1/4] recortando avatar (VP9 alpha, alguns minutos)...", flush=True)
         run(["ffmpeg", "-y", "-v", "error", "-i", avatar,
              "-vf", f"colorkey={args.key}:0.30:0.10,despill=type=green,scale=-2:{args.fg_height}",
              "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-b:v", "2M", "-an", alpha])
@@ -108,8 +118,11 @@ def main():
 
     # 2) audio da fala
     fala = os.path.join(reel, "fala.m4a")
-    if not os.path.exists(fala):
-        print("[2/4] extraindo audio da fala...", flush=True)
+    if precisa_regerar(fala, avatar):
+        if os.path.exists(fala):
+            print("[2/4] fala.m4a mais antigo que o avatar, regerando...", flush=True)
+        else:
+            print("[2/4] extraindo audio da fala...", flush=True)
         run(["ffmpeg", "-y", "-v", "error", "-i", avatar, "-vn", "-c:a", "aac", "-b:a", "192k", fala])
     else:
         print("[2/4] fala.m4a ja existe, reaproveitando", flush=True)
