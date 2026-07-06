@@ -12,14 +12,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
-import { registerOnboardingTools } from "./src/tools/onboarding.js";
-import { registerWorkspaceTools } from "./src/tools/workspace.js";
-import { registerTaskTools } from "./src/tools/tasks.js";
-import { registerCommentTools } from "./src/tools/comments.js";
-import { registerTimeTrackingTools } from "./src/tools/timetracking.js";
-import { registerDocumentTools } from "./src/tools/documents.js";
-import { registerChatTools } from "./src/tools/chat.js";
-import { loadConfig, getApiKey } from "./src/config.js";
+import { registerOnboardingTools } from "./tools/onboarding.js";
+import { registerWorkspaceTools } from "./tools/workspace.js";
+import { registerTaskTools } from "./tools/tasks.js";
+import { registerCommentTools } from "./tools/comments.js";
+import { registerTimeTrackingTools } from "./tools/timetracking.js";
+import { registerDocumentTools } from "./tools/documents.js";
+import { registerChatTools } from "./tools/chat.js";
+import { loadConfig, getApiKey } from "./config.js";
 
 async function main() {
   const config = loadConfig();
