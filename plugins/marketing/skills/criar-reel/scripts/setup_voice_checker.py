@@ -27,7 +27,9 @@ IMPORTANTE — qual audio usar como referencia:
     Threshold seguro: 0.5 (larga margem)
 """
 import argparse
+import hashlib
 import os
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -40,6 +42,27 @@ MODEL_URL = (
 MODEL_PATH = r"C:\MCPs\speaker-embed.onnx"
 REF_PATH   = r"C:\MCPs\eric-voice-ref.wav"
 MODEL_SIZE_MB = 25.3
+
+# Hash real do speaker-embed.onnx em producao na maquina do Joao, calculado em
+# 06/07/2026, correspondente ao MODEL_URL atual. Se o MODEL_URL for trocado de
+# proposito, recalcular o sha256 do arquivo novo e atualizar esta constante.
+EXPECTED_SHA256 = "1a331345f04805badbb495c775a6ddffcdd1a732567d5ec8b3d5749e3c7a5e4b"
+
+
+def ensure_ffmpeg_available():
+    """Confere se ffmpeg e ffprobe estao no PATH antes de converter/inspecionar audio."""
+    faltando = [nome for nome in ("ffmpeg", "ffprobe") if shutil.which(nome) is None]
+    if faltando:
+        sys.exit(f"ERRO: {' e '.join(faltando)} nao encontrado(s) no PATH. Instale e tente novamente.")
+
+
+def compute_sha256(path):
+    """Calcula o sha256 de um arquivo lendo em chunks (nao carrega tudo na memoria)."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def download_model():
@@ -58,6 +81,15 @@ def download_model():
     size = os.path.getsize(MODEL_PATH)
     if size < 1_000_000:
         sys.exit(f"ERRO: arquivo baixado tem apenas {size} bytes — URL invalida?")
+    digest = compute_sha256(MODEL_PATH)
+    if digest != EXPECTED_SHA256:
+        sys.exit(
+            "ERRO: sha256 do arquivo baixado nao bate com o esperado.\n"
+            f"  esperado: {EXPECTED_SHA256}\n"
+            f"  obtido:   {digest}\n"
+            "O MODEL_URL pode ter mudado de conteudo ou o download pode ter corrompido. "
+            "Se o MODEL_URL foi trocado de proposito, recalcule o sha256 e atualize EXPECTED_SHA256."
+        )
     print(f"OK: {size/1024/1024:.1f} MB -> {MODEL_PATH}")
 
 
@@ -115,6 +147,7 @@ def test_model(audio_path):
 
 
 def main():
+    ensure_ffmpeg_available()
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref", help="audio de referencia do locutor (qualquer formato)")
     ap.add_argument("--test", help="arquivo para testar (mp3/mp4/wav)")

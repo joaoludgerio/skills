@@ -24,12 +24,13 @@ import time
 import urllib.error
 import urllib.request
 
+from comum import AVATAR_ERIC_2026, ensure_tools
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ENV_PATH = r"C:\MCPs\heygen.env"
 API = "https://api.heygen.com"
-AVATAR_ERIC_2026 = "bd4f2d9e3ed342a2999b2f585dacc567"
 VOICE_ERIC_PROFISSIONAL = "ad27e0ff57f040f197b3731e53b35244"  # Eric Profissional - Abril-25
 GREEN = "#00FF00"
 
@@ -66,13 +67,27 @@ def call(method, path, key, body=None, retries=3):
         time.sleep(10 * attempt)
 
 
-def download(url, dest, timeout=120):
-    with urllib.request.urlopen(urllib.request.Request(url), timeout=timeout) as r, open(dest, "wb") as f:
-        while True:
-            chunk = r.read(256 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
+def download(url, dest, timeout=120, retries=3):
+    # Mesmo estilo de retry do call(): um soluco de rede no download nao pode
+    # perder um video ja pago no HeyGen.
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url), timeout=timeout) as r, open(dest, "wb") as f:
+                while True:
+                    chunk = r.read(256 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            return
+        except urllib.error.HTTPError as e:
+            print(f"download {os.path.basename(dest)}: HTTP {e.code}", flush=True)
+            if not ((e.code == 429 or e.code >= 500) and attempt < retries):
+                raise
+        except (urllib.error.URLError, TimeoutError) as e:
+            print(f"download {os.path.basename(dest)}: erro de rede: {e}", flush=True)
+            if attempt >= retries:
+                raise
+        time.sleep(10 * attempt)
 
 
 def salvar_jobs(path, jobs):
@@ -84,6 +99,7 @@ def salvar_jobs(path, jobs):
 
 
 def main():
+    ensure_tools("ffmpeg")
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenes-file")
     ap.add_argument("--text")

@@ -19,6 +19,7 @@ Saida: "<arquivo>\tsim=X.XXX\tOK|VOZ_ERRADA" por linha. Exit 1 se alguma errada.
 """
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 
@@ -27,6 +28,12 @@ import numpy as np
 SR = 16000
 DEFAULT_MODEL = os.environ.get("VOICE_MODEL", "C:/MCPs/speaker-embed.onnx")
 DEFAULT_REF = os.environ.get("VOICE_REF", "C:/MCPs/eric-voice-ref.wav")
+
+
+def ensure_ffmpeg_available():
+    """Confere se o ffmpeg esta no PATH antes de extrair o audio das cenas."""
+    if shutil.which("ffmpeg") is None:
+        sys.exit("ERRO: ffmpeg nao encontrado no PATH. Instale o ffmpeg e tente novamente.")
 
 
 def _load_pcm(path, max_s=30):
@@ -58,6 +65,7 @@ class VoiceChecker:
 
 
 def main():
+    ensure_ffmpeg_available()
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
     ap.add_argument("--threshold", type=float, default=0.5)

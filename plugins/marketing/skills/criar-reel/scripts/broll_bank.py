@@ -52,8 +52,10 @@ def download_cached(url, dest):
     cpath = os.path.join(CACHE, key)
     if not os.path.exists(cpath) or os.path.getsize(cpath) == 0:
         data = fetch(url, binary=True)
-        with open(cpath, "wb") as f:
+        tmp_path = cpath + ".tmp"
+        with open(tmp_path, "wb") as f:
             f.write(data)
+        os.replace(tmp_path, cpath)
     shutil.copyfile(cpath, dest)
     return os.path.getsize(dest)
 
@@ -78,12 +80,21 @@ def cmd_get(bank, ids, out):
 def cmd_thumb(bank, ids):
     by = {c["id"]: c for c in bank["clips"]}
     os.makedirs("_bankthumbs", exist_ok=True)
+    not_found = []
     for cid in ids:
-        if cid in by:
-            dest = os.path.join("_bankthumbs", cid + ".jpg")
-            with open(dest, "wb") as f:
-                f.write(fetch(by[cid]["thumb"], binary=True))
-            print("thumb:", dest)
+        if cid not in by:
+            not_found.append(cid)
+            continue
+        dest = os.path.join("_bankthumbs", cid + ".jpg")
+        if os.path.exists(dest) and os.path.getsize(dest) > 0:
+            print("thumb:", dest, "(cache)")
+            continue
+        with open(dest, "wb") as f:
+            f.write(fetch(by[cid]["thumb"], binary=True))
+        print("thumb:", dest)
+    if not_found:
+        print("aviso: ids nao encontrados no banco: " + ", ".join(not_found)
+              + " (confira com --list)")
 
 
 def main():

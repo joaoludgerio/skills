@@ -1,5 +1,5 @@
 import {Composition} from 'remotion';
-import {Reel, ReelProps, FPS} from './Reel';
+import {Reel, ReelProps, FPS, ENDCARD_FRAMES} from './Reel';
 
 const defaultProps: ReelProps = {
   audioSeconds: 60,
@@ -19,7 +19,8 @@ export const Root: React.FC = () => {
       height={1920}
       defaultProps={defaultProps}
       calculateMetadata={({props}) => ({
-        durationInFrames: Math.ceil(props.audioSeconds * FPS),
+        // duracao = fala inteira + end card depois (nao mais sobreposto): CTA falado nao fica coberto
+        durationInFrames: Math.ceil(props.audioSeconds * FPS) + ENDCARD_FRAMES,
       })}
     />
   );

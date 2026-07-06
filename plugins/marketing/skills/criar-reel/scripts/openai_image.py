@@ -14,6 +14,7 @@ import base64
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -60,13 +61,35 @@ def main():
         with urllib.request.urlopen(req, timeout=300) as r:
             return json.load(r)
 
+    def call_com_retry(size, retries=3):
+        """Retry com backoff em erro transitorio (429\5xx\rede); 400 (parametro
+        invalido, ex tamanho recusado) sobe direto, quem chamou trata o fallback."""
+        for attempt in range(1, retries + 1):
+            try:
+                return call(size)
+            except urllib.error.HTTPError as e:
+                e.body = e.read().decode(errors="replace")
+                print(f"OpenAI images: HTTP {e.code}: {e.body}", flush=True)
+                if not ((e.code == 429 or e.code >= 500) and attempt < retries):
+                    raise
+            except (urllib.error.URLError, TimeoutError) as e:
+                print(f"OpenAI images: erro de rede: {e}", flush=True)
+                if attempt >= retries:
+                    raise
+            time.sleep(10 * attempt)
+
     try:
-        resp = call(args.size)
+        resp = call_com_retry(args.size)
     except urllib.error.HTTPError as e:
-        err = e.read().decode()
-        if "size" in err and args.size != "1024x1536":
+        err = getattr(e, "body", None) or e.read().decode(errors="replace")
+        if e.code == 400 and "size" in err and args.size != "1024x1536":
             print(f"size {args.size} recusado, tentando 1024x1536...", flush=True)
-            resp = call("1024x1536")
+            try:
+                resp = call_com_retry("1024x1536")
+            except urllib.error.HTTPError as e2:
+                err2 = getattr(e2, "body", None) or e2.read().decode(errors="replace")
+                print("ERRO:", err2, flush=True)
+                sys.exit(1)
         else:
             print("ERRO:", err, flush=True)
             sys.exit(1)

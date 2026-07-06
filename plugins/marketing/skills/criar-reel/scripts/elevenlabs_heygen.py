@@ -3,7 +3,8 @@
 
 POR QUE EXISTE: gerar a fala cena-a-cena no HeyGen (TTS interno) custa ~US$10-11
 por video de 1 min. Aqui o audio inteiro sai do ElevenLabs em BLOCOS grandes
-(default ~20s — decisao do Eric/Joao em 11/06/2026) e o HeyGen so faz o lip-sync
+(default 12s, igual ao pre-voo; 20s sob pedido explicito via --block-seconds,
+escolha do Eric/Joao em 11/06/2026) e o HeyGen so faz o lip-sync
 do avatar sobre o audio pronto — poucas requisicoes grandes em vez de muitas pequenas.
 
 FLUXO por bloco:
@@ -36,6 +37,8 @@ import time
 import urllib.error
 import urllib.request
 
+from comum import AVATAR_ERIC_2026, VOICE_ELEVEN_ERIC, CHARS_PER_SECOND, group_scenes, ensure_tools
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
@@ -45,15 +48,8 @@ HEYGEN_API = "https://api.heygen.com"
 HEYGEN_UPLOAD = "https://upload.heygen.com/v1/asset"
 ELEVEN_API = "https://api.elevenlabs.io"
 
-AVATAR_ERIC_2026 = "bd4f2d9e3ed342a2999b2f585dacc567"
-VOICE_ELEVEN_ERIC = "ASKPogZ3ZKeHiPbzqJws"  # Eric Profissional - Abril-25 (PVC professional)
-# Escolha do João em 25/06/2026. Anterior: "pvrRNrLjbQYSX1OUhj24" (Eric - Maio/2026, clone).
 ELEVEN_MODEL = "eleven_multilingual_v2"     # mais estavel que o v3 pra PVC
 GREEN = "#00FF00"
-
-# Voz Eric Profissional no eleven_multilingual_v2: ~17.5 chars/segundo (calibrado em
-# 11/06/2026: 707 chars -> 36.5s). Usado so pra AGRUPAR cenas em blocos — nao precisa ser exato.
-CHARS_PER_SECOND = 17.5
 
 
 def load_env(path, var):
@@ -106,22 +102,6 @@ def download(url, dest, timeout=300):
                 f.write(chunk)
         return dest
     return http_retry(_dl, f"download {os.path.basename(dest)}")
-
-
-def group_scenes(scenes, block_seconds):
-    """Agrupa cenas consecutivas em blocos de ~block_seconds (corte só em fim de cena)."""
-    max_chars = block_seconds * CHARS_PER_SECOND
-    blocks, cur = [], []
-    for s in scenes:
-        cand = " ".join(cur + [s])
-        if cur and len(cand) > max_chars:
-            blocks.append(" ".join(cur))
-            cur = [s]
-        else:
-            cur.append(s)
-    if cur:
-        blocks.append(" ".join(cur))
-    return blocks
 
 
 def eleven_tts(text, out_mp3, el_key, voice, seed=None):
@@ -253,12 +233,13 @@ def heygen_submeter_bloco(n, mp3, hg_key, avatar, bg, title):
 
 
 def main():
+    ensure_tools("ffmpeg", "ffprobe")
     ap = argparse.ArgumentParser()
     ap.add_argument("--scenes-file")
     ap.add_argument("--text")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--final", default="eric-green.mp4")
-    ap.add_argument("--block-seconds", type=int, default=20)
+    ap.add_argument("--block-seconds", type=int, default=12)
     ap.add_argument("--avatar", default=AVATAR_ERIC_2026)
     ap.add_argument("--eleven-voice", default=VOICE_ELEVEN_ERIC)
     ap.add_argument("--bg", default=GREEN)

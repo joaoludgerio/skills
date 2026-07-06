@@ -14,7 +14,7 @@ import {fade} from '@remotion/transitions/fade';
 
 export const FPS = 30;
 const FADE_FRAMES = 9; // crossfade de 0.3s entre B-rolls
-const ENDCARD_FRAMES = 90; // ultimos 3s
+export const ENDCARD_FRAMES = 90; // ultimos 3s (exportado: Root.tsx soma na duracao total)
 
 const AMARELO = '#FFE600';
 const AMBAR = '#FFB020';

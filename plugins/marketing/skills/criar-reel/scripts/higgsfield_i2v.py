@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.request
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -26,11 +27,21 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 HF = r"C:\MCPs\hf.exe"
 
 
-def run(args, parse_json=True):
-    r = subprocess.run([HF] + args + (["--json"] if parse_json else []),
-                       capture_output=True, text=True, encoding="utf-8")
-    if r.returncode != 0:
+def run(args, parse_json=True, retries=1):
+    """retries>1 só em comandos idempotentes (consulta/espera/upload): um comando que
+    CRIA job pago (generate create) nao pode ser re-tentado as cegas, um soluco de rede
+    apos o job ja ter sido aceito no servidor geraria um segundo job cobrado em dobro."""
+    r = None
+    for attempt in range(1, retries + 1):
+        r = subprocess.run([HF] + args + (["--json"] if parse_json else []),
+                           capture_output=True, text=True, encoding="utf-8")
+        if r.returncode == 0:
+            break
         print(f"HF ERRO: {' '.join(args)}\n{r.stdout}\n{r.stderr}", flush=True)
+        if attempt < retries:
+            print(f"tentativa {attempt + 1}/{retries}", flush=True)
+            time.sleep(10 * attempt)
+    if r.returncode != 0:
         return None
     if parse_json:
         try:
@@ -124,7 +135,7 @@ def main():
         fpath = os.path.join(frames_dir, frame)
         print(f"\n=== CLIP {n}  ({frame}) ===", flush=True)
 
-        up = run(["upload", "create", fpath])
+        up = run(["upload", "create", fpath], retries=3)
         upload_id = find_id(up) if up else None
         if not upload_id:
             print(f"[clip {n}] ERRO no upload", flush=True)
@@ -138,7 +149,7 @@ def main():
             continue
         print(f"[clip {n}] job_id={job_id} — aguardando...", flush=True)
 
-        res = run(["generate", "wait", job_id])
+        res = run(["generate", "wait", job_id], retries=3)
         url = find_url(res) if res else None
         if not url:
             print(f"[clip {n}] ERRO: sem URL no resultado: {json.dumps(res)[:400]}", flush=True)

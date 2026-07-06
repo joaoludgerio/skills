@@ -38,7 +38,9 @@ HEYGEN = {
     ("avatar_video", "api"):   {"cr_s": 0.017, "usd_cr": 1.00},
     ("avatar_video", "plano"): {"cr_s": 0.006, "usd_cr": 0.145},  # extrapolado
 }
-CHARS_POR_SEG = 17.8   # ritmo de fala medido (938 chars / 52.8s)
+CHARS_POR_SEG = 17.8   # ritmo de fala medido (938 chars / 52.8s). Mede RITMO DE VIDEO
+                       # pronto, proposito diferente do CHARS_PER_SECOND de comum.py
+                       # (split de blocos pro TTS); ver references/custos.md.
 EL_USD_POR_1K = 0.22   # ElevenLabs Creator/Pro (US$/1000 chars)
 IMG_USD = 0.21         # gpt-image-2 alta qualidade (por IMAGEM, via API)
 CLIP_DUR = 5           # ~5s por trecho de B-roll (regra ceil(duracao / 5))

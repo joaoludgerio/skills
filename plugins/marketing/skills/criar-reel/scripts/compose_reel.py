@@ -15,7 +15,9 @@ A duracao final = duracao do avatar. Os B-rolls sao concatenados na ordem
 """
 import argparse
 import glob
+import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -49,20 +51,47 @@ def clip_is_normalized(path):
         return False
 
 
-def normalize_clip(src, tmpdir, idx):
-    """Reencoda o clip pra 1080x1920 30fps h264 (concat demuxer exige streams identicos)."""
-    dst = os.path.join(tmpdir, f"norm-{idx:02d}.mp4")
+def broll_norm_cache_dir():
+    """Diretorio persistente do cache de B-rolls normalizados (sobrevive entre renders)."""
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~/.cache")
+    d = os.path.join(base, "criar-reel-brolls-norm")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def normalize_clip(src):
+    """Reencoda o clip pra 1080x1920 30fps h264 (concat demuxer exige streams identicos).
+
+    Cacheia o resultado num diretorio persistente: o banco de B-rolls e fixo, entao
+    reencodar o MESMO clip em todo render e desperdicio de tempo. Chave do cache =
+    md5(abspath + mtime + size), assim um clip trocado no banco gera outra chave.
+    """
+    st = os.stat(src)
+    key = hashlib.md5(
+        f"{os.path.abspath(src)}|{st.st_mtime}|{st.st_size}".encode("utf-8")
+    ).hexdigest()
+    dst = os.path.join(broll_norm_cache_dir(), f"{key}.mp4")
+    if os.path.exists(dst) and os.path.getsize(dst) > 0:
+        print(f"{os.path.basename(src)} (cache)", flush=True)
+        return dst
+
+    print(f"normalizando {os.path.basename(src)} -> 1080x1920 30fps...", flush=True)
+    tmp_dst = dst + ".tmp"
     subprocess.check_call([
         "ffmpeg", "-y", "-v", "error", "-i", src,
         "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,"
                "crop=1080:1920,setsar=1,fps=30",
         "-an", "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-        "-pix_fmt", "yuv420p", "-video_track_timescale", "15360", dst,
+        "-pix_fmt", "yuv420p", "-video_track_timescale", "15360", tmp_dst,
     ])
+    os.replace(tmp_dst, dst)
     return dst
 
 
 def main():
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        sys.exit("ffmpeg/ffprobe nao encontrado no PATH: instale o ffmpeg antes de rodar este script")
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--avatar", required=True, help="video do HeyGen com fundo verde, OU video original (com --fg-seq)")
     ap.add_argument("--fg-seq", help="dir com PNGs alpha do rembg (f%%05d.png); pula o chromakey")
@@ -81,6 +110,14 @@ def main():
     ), help="linha Style do ASS (PlayRes 1080x1920); legenda amarela acima da cabeca")
     args = ap.parse_args()
 
+    # Paths absolutos: o concat list vai pro %TEMP% e o ffmpeg resolve relativo ao
+    # diretorio da lista, entao path relativo de brolls/avatar/srt/out quebra silenciosamente.
+    args.avatar = os.path.abspath(args.avatar)
+    args.brolls_dir = os.path.abspath(args.brolls_dir)
+    if args.srt:
+        args.srt = os.path.abspath(args.srt)
+    args.out = os.path.abspath(args.out)
+
     clips = sorted(glob.glob(os.path.join(args.brolls_dir, "clip-*.mp4")))
     if not clips:
         sys.exit(f"nenhum clip-*.mp4 em {args.brolls_dir}")
@@ -88,16 +125,14 @@ def main():
     # Normalizacao ANTES do concat: o banco de B-rolls e heterogeneo (1080x1920,
     # 768x1152, 720x1280..., fps 24 e 30) e o concat demuxer exige streams identicos —
     # clip cru fora do padrao TRAVA o video na transicao.
-    tmpdir = tempfile.mkdtemp(prefix="brolls-norm-")
     concat_list = None
     try:
         norm = []
-        for i, c in enumerate(clips, 1):
+        for c in clips:
             if clip_is_normalized(c):
                 norm.append(c)
             else:
-                print(f"normalizando {os.path.basename(c)} -> 1080x1920 30fps...", flush=True)
-                norm.append(normalize_clip(c, tmpdir, i))
+                norm.append(normalize_clip(c))
         clips = norm
 
         dur = ffprobe_dur(args.avatar)
@@ -134,9 +169,20 @@ def main():
             ass_path = os.path.splitext(args.out)[0] + ".ass"
             subprocess.check_call(["ffmpeg", "-y", "-v", "error", "-i", args.srt, ass_path])
             ass = open(ass_path, encoding="utf-8").read()
-            ass = ass.replace("PlayResX: 384", "PlayResX: 1080").replace("PlayResY: 288", "PlayResY: 1920")
-            import re
-            ass = re.sub(r"^Style: Default,.*$", args.sub_style, ass, count=1, flags=re.M)
+            ass, n_x = re.subn(re.escape("PlayResX: 384"), "PlayResX: 1080", ass, count=1)
+            ass, n_y = re.subn(re.escape("PlayResY: 288"), "PlayResY: 1920", ass, count=1)
+            ass, n_style = re.subn(r"^Style: Default,.*$", args.sub_style, ass, count=1, flags=re.M)
+            # Se algum replace nao achou nada (ffmpeg mudou o header do .ass gerado), a legenda
+            # sai minuscula/mal posicionada e sem erro visivel: melhor abortar do que renderizar quebrado.
+            if (
+                n_x != 1 or n_y != 1 or n_style != 1
+                or "PlayResX: 1080" not in ass or "PlayResY: 1920" not in ass
+            ):
+                sys.exit(
+                    "formato do .ass gerado pelo ffmpeg mudou (PlayResX/PlayResY/Style nao encontrados "
+                    "no header): o estilo da legenda nao foi aplicado, abortando pra nao renderizar "
+                    "com legenda quebrada"
+                )
             open(ass_path, "w", encoding="utf-8").write(ass)
             ass_f = ass_path.replace("\\", "/").replace(":", "\\:")
             fc += f";[comp]ass='{ass_f}'[sub]"
@@ -165,7 +211,6 @@ def main():
         # limpeza mesmo se o ffmpeg falhar (o NamedTemporaryFile e delete=False)
         if concat_list and os.path.exists(concat_list):
             os.unlink(concat_list)
-        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 if __name__ == "__main__":

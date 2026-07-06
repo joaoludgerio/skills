@@ -62,9 +62,10 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   CTA de palavra-chave simples já repetida no vídeo (nunca "salva e me segue" como CTA
   principal). Alvo **50-66s**. **Medida objetiva (regra operacional): o cenas.txt inteiro soma
   900-980 caracteres** (conferir com `wc -c`), faixa validada em produção pra caber no alvo de
-  duração. O código usa `CHARS_PER_SECOND = 17.5` (constante definida em
-  `scripts/elevenlabs_heygen.py`, calibrada 11/06/2026, fonte da verdade) pra agrupar as cenas em
-  blocos; o vídeo inteiro já pronto (com as pausas entre blocos somadas) roda mais perto de
+  duração. O código usa `CHARS_PER_SECOND = 17.5` (constante definida em `scripts/comum.py`,
+  calibrada 11/06/2026, fonte da verdade, importada por todos os scripts que agrupam cena em
+  bloco) pra agrupar as cenas em blocos; o vídeo inteiro já pronto (com as pausas entre blocos
+  somadas) roda mais perto de
   ~16 chars/s reais medidos em produção, por isso quem manda é a contagem de caracteres
   (900-980), não uma conta feita na hora com uma taxa de chars/s. Acima de 1000 chars o vídeo
   tende a passar de 66s. Cortar ANTES do gate 2.5.
@@ -105,11 +106,13 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   fronteiras dos blocos mudarem (o defeito é do texto exato do bloco; outro corte = outro
   texto). Validado em produção. Só então disparar o run de produção abaixo.
 - `python scripts/elevenlabs_heygen.py --scenes-file cenas.txt --out-dir <reel>/heygen --block-seconds 12`
-  (background). Blocos de 12s reduzem muito a chance do defeito de timbre (validado em produção);
-  o default de ~20s fica pra quando o Eric pedir explicitamente.
+  (background). O default de `--block-seconds` nos dois scripts (pré-voo e produção) já é 12s,
+  faixa que reduz muito a chance do defeito de timbre (validado em produção); 20s vira opção,
+  usada só quando o Eric pedir explicitamente.
 - O que o script faz (diferença central pra v2):
-  1. Agrupa as cenas do `cenas.txt` em **blocos de até ~20s** (decisão do Eric/João em
-     11/06/2026 após teste com 30s; `--block-seconds` muda).
+  1. Agrupa as cenas do `cenas.txt` em **blocos de ~12s por padrão** (decisão do Eric/João em
+     11/06/2026 após teste com 30s; `--block-seconds` muda, inclusive de volta pros ~20s
+     originais).
   2. Gera o áudio de cada bloco no **ElevenLabs** (voz `Eric Profissional - Abril-25`,
      modelo `eleven_multilingual_v2`, chave em `C:\MCPs\elevenlabs.env`).
   3. **Checkpoint de voz no ÁUDIO** (janelas de 10s com embedding de locutor — pega o defeito
@@ -202,6 +205,8 @@ Antes de começar, ler `references/voz-eric.md` — toda a parte de texto sai ne
   Primeira execução instala dependências num cache persistente (~2 min). O template visual
   fica em `remotion-template/` (identidade fixa: amarelo #FFE600, fonte, posições). Quando o
   usuário não escolher engine, o default continua sendo o compose_reel.py (ffmpeg).
+  O end card roda DEPOIS do fim da fala (a legenda some junto com a fala): o vídeo final sai
+  ~3s mais longo que o áudio, não menos.
   Licença Remotion: gratuita pra times de até 3 pessoas; acima disso é licença paga.
 
 ### 8. Thumb
@@ -262,8 +267,14 @@ vídeo sem os itens 4-7 e o funil de CTA ficou quebrado):
 
 ## Notas / edge cases
 - Python no Bash do Windows: paths com barra normal (`C:/...`).
-- **compose_reel.py: SEMPRE passar caminhos ABSOLUTOS** (--brolls-dir, --avatar, --srt, --out).
-  Com caminho relativo a lista de concat vai pro %TEMP% e o ffmpeg não acha os clip-NN.mp4.
+- **compose_reel.py: preferir caminhos ABSOLUTOS** (--brolls-dir, --avatar, --srt, --out).
+  Desde 06/07/2026 o script normaliza os paths sozinho (a lista de concat ia pro %TEMP% e o
+  ffmpeg não achava os clip-NN.mp4 com caminho relativo), então isso virou boa prática, não
+  requisito, mas continue passando absoluto por hábito.
+- Crash ou queda de energia no meio de um lote do HeyGen (`elevenlabs_heygen.py`/
+  `heygen_video.py`) ou do Kling (`kling_i2v.py`) não perde o crédito já pago: re-rodar o
+  MESMO comando retoma os jobs pendentes via `<out-dir>/jobs.json` (HeyGen) ou
+  `<reel>/kling-state.json` (Kling), sem resubmeter o que já foi gerado.
 - Vídeo gravado manualmente no HeyGen (UI) costuma vir 1920x1080 com o 9:16 encaixotado no
   centro e SEM fundo verde → modo manual: `--crop 608:1080:656:0` no rembg_video.py.
 - Crédito de API: HeyGen e Kling têm crédito separado da assinatura dos sites. Submit recusado não gasta.

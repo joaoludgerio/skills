@@ -14,9 +14,16 @@ import argparse
 import glob
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
+
+
+def ensure_ffmpeg_available():
+    """Confere se o ffmpeg esta no PATH antes de extrair frames do video."""
+    if shutil.which("ffmpeg") is None:
+        sys.exit("ERRO: ffmpeg nao encontrado no PATH. Instale o ffmpeg e tente novamente.")
 
 
 def sidecar_path(fout):
@@ -90,6 +97,7 @@ def ensure_consistent_fg_out(fout, current_params):
 
 
 def main():
+    ensure_ffmpeg_available()
     ap = argparse.ArgumentParser()
     ap.add_argument("video")
     ap.add_argument("out_dir")

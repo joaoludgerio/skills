@@ -7,18 +7,22 @@ de blocos do elevenlabs_heygen.py, gera 1 TTS por bloco e roda o checker de voz
 em cada um. Bloco reprovado = reescrever a frase (mesmo sentido, ritmo diferente)
 e rodar de novo, ate tudo passar. So entao disparar o run de producao.
 
+Cache: cada bloco (voz + modelo + texto) so paga TTS uma vez em
+<pasta do cenas.txt>/.prevoo-cache/ - re-rodar o preflight num bloco ja
+aprovado nao gasta credito de novo (o check local em cima do audio e gratis).
+
 Uso: python preflight_voz.py <cenas.txt> [--block-seconds 12] [--voice ID] [--env C:/MCPs/elevenlabs.env]
 Exit 0 = todos os blocos passaram. Exit 1 = tem bloco reprovado (lista no stdout).
 """
-import argparse, json, os, subprocess, sys, tempfile, urllib.request
+import argparse, hashlib, json, os, subprocess, sys, urllib.request
+
+from comum import CHARS_PER_SECOND, VOICE_ELEVEN_ERIC, group_scenes, ensure_tools
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CHECKER = os.path.join(HERE, "verificar_voz.py")
-CHARS_PER_SECOND = 17.5  # manter igual ao elevenlabs_heygen.py
-DEFAULT_VOICE = "ASKPogZ3ZKeHiPbzqJws"  # Eric Profissional - Abril-25
 MODEL = "eleven_multilingual_v2"
 
 
@@ -27,21 +31,6 @@ def load_key(env_path):
         if line.startswith("ELEVENLABS_API_KEY="):
             return line.split("=", 1)[1].strip()
     sys.exit(f"ELEVENLABS_API_KEY nao encontrada em {env_path}")
-
-
-def group_scenes(scenes, block_seconds):
-    """Copia fiel do split do elevenlabs_heygen.py (corte so em fim de cena)."""
-    max_chars = block_seconds * CHARS_PER_SECOND
-    blocks, cur = [], []
-    for s in scenes:
-        cand = " ".join(cur + [s])
-        if cur and len(cand) > max_chars:
-            blocks.append(" ".join(cur)); cur = [s]
-        else:
-            cur.append(s)
-    if cur:
-        blocks.append(" ".join(cur))
-    return blocks
 
 
 def tts(text, out, key, voice, seed):
@@ -61,10 +50,11 @@ def check(path):
 
 
 def main():
+    ensure_tools("ffmpeg")
     ap = argparse.ArgumentParser()
     ap.add_argument("cenas_file")
     ap.add_argument("--block-seconds", type=int, default=12)
-    ap.add_argument("--voice", default=DEFAULT_VOICE)
+    ap.add_argument("--voice", default=VOICE_ELEVEN_ERIC)
     ap.add_argument("--env", default=r"C:\MCPs\elevenlabs.env")
     ap.add_argument("--transcrever", action="store_true",
                     help="transcreve cada bloco com whisper (small) e imprime, pra conferir a "
@@ -76,18 +66,28 @@ def main():
     scenes = [l.strip() for l in open(args.cenas_file, encoding="utf-8") if l.strip()]
     blocks = group_scenes(scenes, args.block_seconds)
     key = load_key(args.env)
-    tmp = tempfile.mkdtemp(prefix="prevoo-voz-")
+    # Cache por conteudo (voz + modelo + texto do bloco): re-rodar num bloco ja
+    # aprovado nao paga TTS de novo. Fica do lado do cenas.txt (nao some no /tmp).
+    cache_dir = os.path.join(os.path.dirname(os.path.abspath(args.cenas_file)), ".prevoo-cache")
+    os.makedirs(cache_dir, exist_ok=True)
     fails = []
     for n, text in enumerate(blocks, 1):
-        mp3 = os.path.join(tmp, f"b{n:02d}.mp3")
-        tts(text, mp3, key, args.voice, seed=1000 * n + 1)  # mesmo seed da 1a tentativa do run real
+        chave = hashlib.md5((args.voice + MODEL + text).encode("utf-8")).hexdigest()
+        mp3 = os.path.join(cache_dir, f"b-{chave}.mp3")
+        cache_hit = os.path.exists(mp3) and os.path.getsize(mp3) > 0
+        if not cache_hit:
+            tts(text, mp3, key, args.voice, seed=1000 * n + 1)  # mesmo seed da 1a tentativa do run real
         ok, line = check(mp3)
-        print(f"bloco {n}: {'PASS' if ok else 'FAIL'}  ({line})", flush=True)
+        tag = " (cache)" if cache_hit else ""
+        print(f"bloco {n}: {'PASS' if ok else 'FAIL'}{tag}  ({line})", flush=True)
         if args.transcrever:
-            r = subprocess.run(["whisper", mp3, "--language", "Portuguese", "--model", "small",
-                                "--output_format", "txt", "--output_dir", tmp],
+            # whisper grava "<basename do mp3>.txt" no output_dir - como o mp3 ja se
+            # chama "b-<chave>.mp3", o .txt cai automaticamente na mesma chave de cache.
+            txt = os.path.join(cache_dir, f"b-{chave}.txt")
+            if not os.path.exists(txt):
+                subprocess.run(["whisper", mp3, "--language", "Portuguese", "--model", "small",
+                                "--output_format", "txt", "--output_dir", cache_dir],
                                capture_output=True, text=True, env={**os.environ, "PYTHONUTF8": "1"})
-            txt = os.path.join(tmp, os.path.splitext(os.path.basename(mp3))[0] + ".txt")
             ouvido = open(txt, encoding="utf-8").read().strip() if os.path.exists(txt) else "(sem transcricao)"
             print(f"   ouvido: {ouvido}", flush=True)
             print(f"   fonte : {text}", flush=True)

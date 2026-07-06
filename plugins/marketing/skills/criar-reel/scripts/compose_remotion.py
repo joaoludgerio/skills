@@ -28,11 +28,19 @@ CACHE = os.path.join(
 )
 
 
-def run(cmd, cwd=None, shell=False):
-    r = subprocess.run(cmd, cwd=cwd, shell=shell, capture_output=True, text=True)
+def run(cmd, cwd=None):
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if r.returncode != 0:
         sys.exit(f"FALHOU: {cmd}\n{(r.stderr or r.stdout)[-1200:]}")
     return r
+
+
+def resolve_exe(nome):
+    """Acha o executavel no PATH sem shell=True (no Windows resolve pro .cmd)."""
+    caminho = shutil.which(nome)
+    if not caminho:
+        sys.exit(f"{nome} nao encontrado no PATH. Instale Node 18+ (https://nodejs.org).")
+    return caminho
 
 
 def ffprobe_dur(path):
@@ -55,7 +63,8 @@ def sync_template():
         shutil.copy2(os.path.join(TEMPLATE, rel), os.path.join(CACHE, rel))
     if not os.path.isdir(os.path.join(CACHE, "node_modules")):
         print("[remotion] primeira execucao: npm install no cache (~2 min)...", flush=True)
-        run("npm install --no-fund --no-audit", cwd=CACHE, shell=True)
+        npm = resolve_exe("npm")
+        run([npm, "install", "--no-fund", "--no-audit"], cwd=CACHE)
 
 
 def srt_to_captions(srt_path):
@@ -90,6 +99,10 @@ def main():
     ap.add_argument("--key", default="0x00FF00")
     ap.add_argument("--fg-height", type=int, default=1320)
     args = ap.parse_args()
+
+    for exe in ("ffmpeg", "ffprobe"):
+        if not shutil.which(exe):
+            sys.exit(f"{exe} nao encontrado no PATH. Instale o ffmpeg antes de continuar.")
 
     reel = os.path.abspath(args.reel)
     def resolve(p):
@@ -142,10 +155,11 @@ def main():
 
     # 4) render
     print(f"[4/4] renderizando ({props['audioSeconds']:.1f}s, {len(clips)} clips; ~10 min)...", flush=True)
+    npx = resolve_exe("npx")
     run(
-        f'npx remotion render src/index.ts Reel "{out}" --codec h264 --crf 18 '
-        f'--public-dir "{reel}" --props "{props_file}"',
-        cwd=CACHE, shell=True,
+        [npx, "remotion", "render", "src/index.ts", "Reel", out, "--codec", "h264", "--crf", "18",
+         "--public-dir", reel, "--props", props_file],
+        cwd=CACHE,
     )
     print(f"SAVED -> {out} ({ffprobe_dur(out):.1f}s)", flush=True)
 
