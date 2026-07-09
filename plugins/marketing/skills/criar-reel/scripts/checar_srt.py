@@ -27,6 +27,16 @@ FONETICA = {
     "envídia": ["nvidia"], "équis": ["dgx", "x"], "dê": ["dgx"], "gê": ["dgx"],
     "spark": ["spark"],
     "línquedin": ["linkedin"], "rédit": ["reddit"], "gúgou": ["google"], "méps": ["maps"],
+    "líde": ["lead"], "lídes": ["leads"], "uátsapi": ["whatsapp"], "uátsap": ["whatsapp"],
+    "fólou-âp": ["follow-up", "follow", "up"], "fólou": ["follow"], "invésp": ["invesp"],
+    "erre": ["crm"], "tôquen": ["token"], "tôquens": ["tokens"], "ramonof": ["ramonov"],
+    "êidjent": ["agent"], "estáque": ["stack", "gstack"], "skíous": ["skills"],
+    "skiu": ["skill"], "skius": ["skills", "skills.sh"], "versél": ["vercel"],
+    "antrópic": ["anthropic"], "uái": ["y"], "combinêitor": ["combinator"],
+    "gárri": ["garry"], "dizáiner": ["designer"],
+    "í": ["mit"], "tê": ["mit"], "pátrick": ["patrick"], "uínston": ["winston"],
+    "fêibou": ["fable"], "fêibol": ["fable"],
+    "rrarvard": ["harvard"], "biznis": ["business"], "reviu": ["review"],
 }
 # sempre aceitas (numerais que o Whisper escreve em digito, pontuacao de siglas comuns)
 EXTRAS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "15", "20", "30", "50", "60", "100", "ia", "ai"}

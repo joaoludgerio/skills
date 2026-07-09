@@ -76,7 +76,7 @@ def normalize_clip(src):
         return dst
 
     print(f"normalizando {os.path.basename(src)} -> 1080x1920 30fps...", flush=True)
-    tmp_dst = dst + ".tmp"
+    tmp_dst = dst + ".tmp.mp4"
     subprocess.check_call([
         "ffmpeg", "-y", "-v", "error", "-i", src,
         "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,"
