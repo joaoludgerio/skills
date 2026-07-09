@@ -826,9 +826,41 @@ def escrever_manifest(video: Path, out_dir: Path, clips: list, finais: list,
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────
 
+def _dur_minutos(video: Path) -> float:
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", str(video)],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        return float(out) / 60.0
+    except Exception:
+        return 0.0
+
+
+def processar_video(video: Path, args, out_dir: Path):
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"📂 Pasta de saída: {out_dir}")
+
+    queimar = not args.sem_legenda
+
+    if args.fase in ("transcricao", "tudo"):
+        fase_transcricao(video, out_dir)
+
+    if args.fase in ("analise", "tudo"):
+        fase_analise(out_dir, n_clips=args.clips, duracao=args.duracao)
+
+    if args.fase in ("cortar", "tudo"):
+        fase_cortar(video, out_dir, formato=args.formato, queimar_legenda=queimar,
+                    crop_side=args.crop_side, estilo_legenda=args.estilo_legenda)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Clipar vídeo longo em clipes virais")
-    ap.add_argument("--video", required=True)
+    ap.add_argument("--video", default=None, help="Um vídeo específico (ou use --batch)")
+    ap.add_argument("--batch", default=None,
+                    help="Pasta com vários vídeos (.mp4/.mov/.mkv): processa todos em fila, "
+                         "sempre com --fase tudo, uma pasta de saída por vídeo")
     ap.add_argument("--duracao", type=int, default=60, help="Duração alvo dos clipes em segundos")
     ap.add_argument("--clips", type=int, default=5, help="Número de clipes a extrair")
     ap.add_argument("--formato", default="9:16", choices=["9:16", "16:9"])
@@ -849,6 +881,51 @@ def main():
 
     global APLICAR_GLOSSARIO
     APLICAR_GLOSSARIO = not args.sem_glossario
+
+    if bool(args.video) == bool(args.batch):
+        sys.exit("❌ Passe --video OU --batch (exatamente um dos dois).")
+
+    # ── Modo batch: fila de vídeos, uma pasta de saída por vídeo ──
+    if args.batch:
+        pasta = Path(args.batch)
+        if not pasta.is_dir():
+            sys.exit(f"❌ Pasta não encontrada: {pasta}")
+        videos = sorted(p for p in pasta.iterdir()
+                        if p.suffix.lower() in (".mp4", ".mov", ".mkv"))
+        if not videos:
+            sys.exit(f"❌ Nenhum vídeo (.mp4/.mov/.mkv) em {pasta}")
+
+        total_min = 0.0
+        print(f"🎞️  BATCH: {len(videos)} vídeo(s) em {pasta}")
+        for v in videos:
+            m = _dur_minutos(v)
+            total_min += m
+            print(f"   • {v.name}  ({m:.0f} min)" if m else f"   • {v.name}  (duração ?)")
+        custo = total_min * 0.006 + 0.03 * len(videos)
+        print(f"💰 Custo estimado de API: ~US${custo:.2f} "
+              f"({total_min:.0f} min de transcrição + {len(videos)} análises)\n")
+
+        downloads = Path.home() / "Downloads"
+        ts = __import__("datetime").datetime.now().strftime("%Y%m%d-%H%M%S")
+        falhas = []
+        for i, v in enumerate(videos, 1):
+            print(f"\n{'#' * 60}\n# BATCH {i}/{len(videos)}: {v.name}\n{'#' * 60}")
+            out_dir = downloads / f"clipes-{slug(v.stem, 30)}-{ts}"
+            try:
+                processar_video(v, args, out_dir)
+            except SystemExit:
+                raise
+            except Exception as e:
+                # um video corrompido nao pode derrubar a fila inteira
+                falhas.append((v.name, str(e)[:200]))
+                print(f"❌ Falhou {v.name}: {e}\n   Seguindo pro próximo da fila.")
+        if falhas:
+            print(f"\n⚠️  BATCH terminou com {len(falhas)} falha(s):")
+            for nome, erro in falhas:
+                print(f"   • {nome}: {erro}")
+        else:
+            print(f"\n✅ BATCH completo: {len(videos)} vídeo(s) sem falha.")
+        return
 
     video = Path(args.video)
     if not video.exists():
@@ -874,20 +951,7 @@ def main():
         ts = __import__("datetime").datetime.now().strftime("%Y%m%d-%H%M%S")
         out_dir = downloads / f"clipes-{slug(video.stem, 30)}-{ts}"
 
-    out_dir.mkdir(parents=True, exist_ok=True)
-    print(f"📂 Pasta de saída: {out_dir}")
-
-    queimar = not args.sem_legenda
-
-    if args.fase in ("transcricao", "tudo"):
-        fase_transcricao(video, out_dir)
-
-    if args.fase in ("analise", "tudo"):
-        fase_analise(out_dir, n_clips=args.clips, duracao=args.duracao)
-
-    if args.fase in ("cortar", "tudo"):
-        fase_cortar(video, out_dir, formato=args.formato, queimar_legenda=queimar,
-                    crop_side=args.crop_side, estilo_legenda=args.estilo_legenda)
+    processar_video(video, args, out_dir)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 ---
 name: clipar-video
 description: "Transforma um vídeo longo (podcast, gravação, palestra) em clipes virais curtos prontos pra postar — igual ao Opus Clip. Transcreve com a API Whisper da OpenAI, usa Claude para identificar os melhores momentos com hooks fortes, corta com FFmpeg, reencadra pra 9:16 e queima a legenda no vídeo. Usar quando o João pedir 'clipa esse vídeo', 'gera clipes desse podcast', 'faz os cortes virais', 'cria shorts desse vídeo', 'quero 5 clipes de 60 segundos'."
-argument-hint: "[video.mp4] [--auto] [--duracao 30|60|90] [--clips N] [--formato 9:16|16:9] [--estilo-legenda padrao|eric] [--sem-legenda] [--sem-glossario]"
+argument-hint: "[video.mp4] [--auto] [--batch pasta] [--duracao 30|60|90] [--clips N] [--formato 9:16|16:9] [--estilo-legenda padrao|eric] [--sem-legenda] [--sem-glossario]"
 allowed-tools: Read, Write, Edit, Bash, Glob
 ---
 
@@ -25,7 +25,7 @@ Quando o pedido vier com **"--auto"**, "modo automático", "roda a esteira", ou 
 
 1. Rodar tudo de uma vez com defaults (60s, 5 clipes, 9:16, legenda queimada estilo eric):
    ```bash
-   python "C:/Users/Joao/.claude/skills/clipar-video/scripts/clipar_video.py" \
+   python "${CLAUDE_PLUGIN_ROOT}/skills/clipar-video/scripts/clipar_video.py" \
      --video "<caminho>" --fase tudo --estilo-legenda eric
    ```
    O script aplica sozinho o glossário de ASR no SRT (Claude, ChatGPT, GitHub, MCP...) e, no final,
@@ -38,8 +38,11 @@ Quando o pedido vier com **"--auto"**, "modo automático", "roda a esteira", ou 
 3. Se algum SRT tiver termo sinalizado no manifest, abrir o .srt, decidir pelo contexto e corrigir
    com Edit ANTES de dar o pacote como pronto (o vídeo com legenda queimada precisa ser re-cortado
    se o SRT mudar: apagar o .mp4 final daquele clipe e rodar de novo só a fase cortar).
-4. **Batch** (acervo inteiro): repetir o comando por arquivo da pasta, sequencial, informando o custo
-   estimado total antes (US$0.006/min de áudio + ~US$0.03 de análise por vídeo).
+4. **Batch** (acervo inteiro): passar `--batch "<pasta>"` no lugar de `--video`. O script lista os
+   vídeos (.mp4/.mov/.mkv), imprime o custo estimado total ANTES de começar (US$0.006/min de áudio +
+   ~US$0.03 de análise por vídeo) e processa em fila, uma pasta de saída por vídeo; um vídeo
+   corrompido não derruba a fila (falhas são listadas no final). Gerar as legendas de post de todos
+   os manifests ao terminar.
 
 Destino padrão dos pacotes prontos da esteira: mover/copiar a pasta pra
 `Downloads/funil-cortes/<AAAA-MM-DD>-<slug>/` quando o pacote for aprovado pra fila de publicação.
@@ -67,7 +70,7 @@ Exemplo de pergunta ideal:
 ### 2. Transcrição com Whisper (API OpenAI)
 
 ```bash
-python "C:/Users/Joao/.claude/skills/clipar-video/scripts/clipar_video.py" \
+python "${CLAUDE_PLUGIN_ROOT}/skills/clipar-video/scripts/clipar_video.py" \
   --video "<caminho>" \
   --duracao <segundos> \
   --clips <N> \
@@ -94,7 +97,7 @@ sempre prefira passar `--out-dir` explicitamente.)
 ### 3. Análise Claude — identificar melhores momentos
 
 ```bash
-python "C:/Users/Joao/.claude/skills/clipar-video/scripts/clipar_video.py" \
+python "${CLAUDE_PLUGIN_ROOT}/skills/clipar-video/scripts/clipar_video.py" \
   --video "<caminho>" \
   --duracao <segundos> \
   --clips <N> \
@@ -135,7 +138,7 @@ Se OK, seguir pra etapa 5. Se quiser editar: aceitar `remover 2,4` ou `ajustar 3
 ### 5. Corte + legenda + reencadre
 
 ```bash
-python "C:/Users/Joao/.claude/skills/clipar-video/scripts/clipar_video.py" \
+python "${CLAUDE_PLUGIN_ROOT}/skills/clipar-video/scripts/clipar_video.py" \
   --video "<caminho>" \
   --duracao <segundos> \
   --clips <N> \
