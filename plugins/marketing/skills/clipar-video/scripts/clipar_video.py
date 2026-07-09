@@ -625,12 +625,27 @@ def reframe_9x16(video: Path, start: float, end: float, out_path: Path, crop_sid
     print(f"   🎥 {len(shots)} planos detectados, reenquadrando cada um...")
     seg_dir = out_path.parent / "shots"
     seg_dir.mkdir(exist_ok=True)
+
+    # Plano sem rosto detectado NAO cai pro corte central (numa camera aberta o
+    # centro costuma ser a mesa/cenario, nao a pessoa): herda o enquadre do plano
+    # vizinho mais proximo que TEM rosto. Central so se nenhum plano tiver rosto.
+    if crop_side != "auto":
+        offsets_x = [_xoff_manual(crop_side, w, target_w)] * len(shots)
+    else:
+        faces = [detectar_face_x(video, start + s0, start + s1, y0, ch)
+                 for s0, s1 in shots]
+        com_rosto = [i for i, f in enumerate(faces) if f is not None]
+        sem_rosto = [i for i, f in enumerate(faces) if f is None]
+        if sem_rosto and com_rosto:
+            for i in sem_rosto:
+                vizinho = min(com_rosto, key=lambda j: abs(j - i))
+                faces[i] = faces[vizinho]
+            print(f"   👤 {len(sem_rosto)} plano(s) sem rosto herdaram o enquadre do plano vizinho")
+        offsets_x = [_xoff(f, w, target_w) for f in faces]
+
     parts = []
     for i, (s0, s1) in enumerate(shots):
-        if crop_side != "auto":
-            x_off = _xoff_manual(crop_side, w, target_w)
-        else:
-            x_off = _xoff(detectar_face_x(video, start + s0, start + s1, y0, ch), w, target_w)
+        x_off = offsets_x[i]
         part = seg_dir / f"shot_{i:02d}.mp4"
         run_ffmpeg([
             "ffmpeg", "-y", "-ss", f"{start + s0:.3f}", "-to", f"{start + s1:.3f}", "-i", str(video),
