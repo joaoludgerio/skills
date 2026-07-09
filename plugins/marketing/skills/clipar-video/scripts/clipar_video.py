@@ -315,7 +315,14 @@ def fase_analise(out_dir: Path, n_clips: int, duracao: int) -> list:
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = msg.content[0].text.strip()
+    # modelos com extended thinking devolvem blocos de thinking ANTES do texto;
+    # pegar o primeiro bloco de texto de verdade em vez de assumir content[0]
+    raw = next(
+        (b.text for b in msg.content if getattr(b, "type", "") == "text"), None
+    )
+    if raw is None:
+        sys.exit("❌ Resposta da API sem bloco de texto (só thinking?). Rodar de novo.")
+    raw = raw.strip()
 
     # limpar markdown se vier
     raw = re.sub(r"^```json\s*", "", raw)
