@@ -29,7 +29,15 @@ except ImportError:
 try:
     import cv2
     import numpy as np
-    HAS_CV2 = True
+    # opencv-python-headless 5.x tira CascadeClassifier/HOGDescriptor do modulo e,
+    # se instalado por cima do opencv-python 4.x, sombreia ele: o import funciona mas
+    # TODA deteccao falharia em silencio e TODO plano cairia pro corte central (a mesa,
+    # numa camera aberta). Melhor avisar alto do que reenquadrar errado sem erro.
+    HAS_CV2 = hasattr(cv2, "CascadeClassifier") and hasattr(cv2, "HOGDescriptor")
+    if not HAS_CV2:
+        print("⚠️  OpenCV instalado NAO tem CascadeClassifier/HOGDescriptor (headless 5.x?). "
+              "Reenquadre vai usar corte central. Fix: pip uninstall -y opencv-python-headless "
+              "opencv-python && pip install opencv-python==4.13.*")
 except ImportError:
     HAS_CV2 = False
 
