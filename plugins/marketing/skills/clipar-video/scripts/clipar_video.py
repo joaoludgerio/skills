@@ -487,11 +487,42 @@ def detectar_letterbox(video_path: Path, start: float, end: float) -> tuple:
     return (top, bot - top + 1)
 
 
+def _detectar_corpo_x(frames: list) -> float | None:
+    """Fallback pra plano aberto: detector de pessoa (HOG) sobre os frames amostrados.
+    O Haar de rosto falha quando a pessoa aparece pequena/de lado na camera aberta,
+    mas o corpo inteiro visivel e' exatamente o caso bom do HOG."""
+    try:
+        hog = cv2.HOGDescriptor()
+        hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        posicoes = []
+        for frame in frames:
+            h, w = frame.shape[:2]
+            escala = 640.0 / w
+            small = cv2.resize(frame, (640, max(1, int(h * escala))))
+            rects, weights = hog.detectMultiScale(
+                small, winStride=(8, 8), padding=(8, 8), scale=1.05)
+            if len(rects) == 0:
+                continue
+            melhor = max(range(len(rects)), key=lambda i: float(weights[i]))
+            x, _, rw, _ = rects[melhor]
+            posicoes.append((x + rw / 2) / 640.0)
+        if len(posicoes) < 2:
+            return None
+        posicoes.sort()
+        return posicoes[len(posicoes) // 2]
+    except Exception:
+        return None
+
+
 def detectar_face_x(video_path: Path, start: float, end: float,
                     y0: int = 0, ch: int = 0) -> float | None:
-    """Amostra varios frames no intervalo [start,end], detectando faces DENTRO da area util
-    [y0, y0+ch] (sem letterbox). Retorna a MEDIANA da posicao X normalizada (0.0 a 1.0)
-    do centro da maior face (frontal ou perfil)."""
+    """Amostra varios frames no intervalo [start,end] e retorna a MEDIANA da posicao X
+    normalizada (0.0 a 1.0) da pessoa, DENTRO da area util [y0, y0+ch] (sem letterbox).
+
+    Ordem de confianca: rosto com bastante hit > corpo (HOG) > rosto com pouco hit.
+    Rosto com POUCOS hits nos samples e' tratado como suspeito (em plano aberto o Haar
+    gera falso positivo em tela/cenario e o corte central acaba enquadrando a mesa):
+    nesse caso a deteccao de corpo decide."""
     if not HAS_CV2:
         return None
     try:
@@ -506,6 +537,7 @@ def detectar_face_x(video_path: Path, start: float, end: float,
         offsets = [dur * (i + 1) / (n_samples + 1) for i in range(n_samples)]
 
         posicoes = []
+        frames = []
         for off in offsets:
             frame_target = int((start + off) * fps)
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_target)
@@ -515,6 +547,7 @@ def detectar_face_x(video_path: Path, start: float, end: float,
             w_frame = frame.shape[1]
             if ch > 0:
                 frame = frame[y0:y0 + ch, :]
+            frames.append(frame)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = _detectar_faces_frame(gray, det_frontal, det_profile)
             if not faces:
@@ -523,10 +556,22 @@ def detectar_face_x(video_path: Path, start: float, end: float,
             posicoes.append((x + fw / 2) / w_frame)
 
         cap.release()
-        if not posicoes:
-            return None
-        posicoes.sort()
-        return posicoes[len(posicoes) // 2]
+
+        # Rosto consistente (metade+ dos samples): confiavel, usa.
+        if len(posicoes) >= max(3, len(frames) // 2):
+            posicoes.sort()
+            return posicoes[len(posicoes) // 2]
+
+        # Rosto raro ou ausente: provavel plano aberto; corpo decide.
+        corpo = _detectar_corpo_x(frames)
+        if corpo is not None:
+            print("   🧍 plano sem rosto confiável: enquadrando pela detecção de corpo")
+            return corpo
+
+        if posicoes:
+            posicoes.sort()
+            return posicoes[len(posicoes) // 2]
+        return None
     except Exception:
         return None
 
@@ -710,6 +755,11 @@ def cortar_clip(
 
     # ── Reenquadre (9:16 face-aware por plano, ou 16:9 corte reto)
     reencadrado = clip_dir / "reencadrado.mp4"
+    # Retry de um clipe (final apagado) NUNCA reaproveita reenquadre velho: ele pode
+    # ter sido gerado por uma versao anterior da logica de enquadre.
+    if reencadrado.exists() and not (out_dir / f"{clip_nome}.mp4").exists():
+        reencadrado.unlink()
+        print("   ♻️  Reenquadre antigo descartado: refazendo com a lógica atual")
     if not reencadrado.exists() and formato == "9:16":
         print(f"   📐 Reenquadrando para 9:16...")
         reframe_9x16(video, start, end, reencadrado, crop_side=crop_side)
