@@ -2,7 +2,7 @@
 
 Ferramentas de IA da Expert Integrado para uso com Claude Code: MCPs (servidores que conectam Claude a sistemas) e Skills (instrucoes que orquestram tarefas profissionais por departamento).
 
-> Reorganizado em 24/05/2026 (v2.0.0): skills agora em 5 plugins por departamento via marketplace.
+> Reorganizado em 24/05/2026 (v2.0.0): skills em plugins por departamento via marketplace. Hoje sao 4 plugins: comercial, eventos, marketing e operacoes.
 
 ## MCPs incluidos
 
@@ -15,17 +15,27 @@ Ferramentas de IA da Expert Integrado para uso com Claude Code: MCPs (servidores
 | **ChatGuru** | Consulta de conversas do WhatsApp empresarial |
 | **WhatsApp** | WhatsApp pessoal via extensao do navegador |
 
-## Skills (5 plugins por departamento)
+## Skills (4 plugins por departamento)
 
 | Plugin | Skills | Comando |
 |--------|--------|---------|
-| **comercial** | prospecta-lead, reabordagem, pipe-review, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao, estou-devendo | `/plugin install comercial@expertintegrado` |
-| **eventos** | convidar-evento, verificar-convites | `/plugin install eventos@expertintegrado` |
-| **marketing** | tweet-print, pesquisa-instagram | `/plugin install marketing@expertintegrado` |
+| **comercial** | prospecta-lead, reabordagem, pipe-review, fup-inteligente, transferir-lead, estou-devendo, calendly-agendar, calendly-link, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao | `/plugin install comercial@expertintegrado` |
+| **eventos** | convidar-evento, verificar-convites, notificacao-webinario | `/plugin install eventos@expertintegrado` |
+| **marketing** | Video e Reels: criar-reel, viral-pra-reel, clipar-video, video, editar-video-motion, cortar-respiros, gerar-srt. Conteudo: orquestrar-conteudo, carrossel-studio, imagem, criar-script, tweet-print. Blog: agente-draft-blog, agente-revisor-blog, agente-publisher-blog, gerar-hero-blog, criar-post-blog (deprecado). Trafego e webinario: criar-campanha, relatorio-ads, criar-webinario. Pesquisa: ig-competitor-research, pauta-semanal. Palestra: demonstracao-agente | `/plugin install marketing@expertintegrado` |
 | **operacoes** | email-cleaner, onboard | `/plugin install operacoes@expertintegrado` |
-| **setup** | telegram-setup | `/plugin install setup@expertintegrado` |
 
 > Maquinas/perfis diferentes instalam pacotes diferentes. PC do Eric instala todos. VPS comercial so `comercial + operacoes`. Notebook enxuto so `comercial`.
+
+## Instalacao das skills (plugins)
+
+No Claude Code, direto no chat:
+
+```
+/plugin marketplace add joaoludgerio/skills
+/plugin install marketing@expertintegrado
+```
+
+Troque `marketing` pelo plugin desejado. Skills com setup proprio (ex.: criar-reel) trazem um `SETUP.md` dentro da pasta da skill; depois de instalar, peca ao Claude: "le o SETUP.md da skill criar-reel e me guia na instalacao".
 
 ## Skills removidas em v2.0.0
 
@@ -36,11 +46,11 @@ Ferramentas de IA da Expert Integrado para uso com Claude Code: MCPs (servidores
 - [Node.js 18+](https://nodejs.org/) — instale e reinicie o computador
 - [Claude Code](https://claude.ai/download) instalado
 
-## Instalacao
+## Instalacao dos MCPs
 
 Abra o Claude Code e envie o seguinte prompt:
 
-> Clona https://github.com/expertintegrado/skills.git em C:\MCPs\expert-mcps e roda `node setup.js` pra instalar os MCPs
+> Clona https://github.com/joaoludgerio/skills.git em C:\MCPs\expert-mcps e roda `node setup.js` pra instalar os MCPs
 
 O Claude Code faz tudo automaticamente:
 1. Clona o repositorio
@@ -79,7 +89,7 @@ Quando houver atualizacao, abra o Claude Code e peca:
 ```
 expert-mcps/
   .claude-plugin/
-    marketplace.json    — cataloga os 5 plugins
+    marketplace.json    (cataloga os 4 plugins)
   CLAUDE.md             — regras canonicas (incluindo Pipedrive)
   mcps/                 — servidores MCP
     pipedrive/    — Pipedrive CRM
@@ -91,15 +101,13 @@ expert-mcps/
   plugins/              — skills por departamento (v2.0.0)
     comercial/
       .claude-plugin/plugin.json
-      skills/{prospecta-lead, reabordagem, pipe-review, whatsapp-campanha-api-fup, whatsapp-campanha-central-prospeccao, estou-devendo}/
+      skills/  (10 skills; ver tabela acima)
     eventos/
-      skills/{convidar-evento, verificar-convites}/
+      skills/  (convidar-evento, verificar-convites, notificacao-webinario)
     marketing/
-      skills/{tweet-print, pesquisa-instagram}/
+      skills/  (23 skills de video, conteudo, blog e trafego; ver tabela acima)
     operacoes/
-      skills/{email-cleaner, onboard}/
-    setup/
-      skills/{telegram-setup}/
+      skills/  (email-cleaner, onboard)
   setup.js              — Setup interativo de MCPs
   package.json
   README.md
