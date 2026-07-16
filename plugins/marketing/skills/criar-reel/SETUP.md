@@ -5,6 +5,29 @@ Esta skill foi construída originalmente pro fluxo do Eric (Expert Integrado) �
 adaptá-la pra ESTE usuário: dependências, chaves, avatar, voz e tom. Siga as fases na ordem,
 **valide cada uma antes de seguir**, e não gaste crédito de API do usuário sem avisar antes.
 
+## Regra zero: o usuário pode ser leigo
+
+Assuma que o usuário NÃO é técnico e NÃO é do mundo do vídeo (pode ser alguém de 50+ anos
+rodando isso pela primeira vez). Regras de comunicação durante TODO o setup e o uso:
+
+- Na PRIMEIRA vez que um termo aparecer, explique em 1 frase simples. Exemplos prontos:
+  B-roll (os vídeos de fundo que aparecem enquanto o avatar fala), lip-sync (fazer a boca
+  do avatar mexer conforme o áudio), TTS (transformar texto em fala com a voz clonada),
+  avatar (a versão digital do usuário em vídeo, criada no HeyGen), SRT (o arquivo da legenda
+  que aparece na tela), chromakey (recortar o fundo verde do vídeo), chave de API (uma senha
+  que autoriza o computador do usuário a usar um serviço pago em nome dele), arquivo .env
+  (um bloco de notas onde essa senha fica guardada, só na máquina dele).
+- Um passo por vez: peça UMA coisa, valide, só então peça a próxima. Nunca despeje uma
+  lista de 5 tarefas de uma vez.
+- Ao pedir qualquer coisa num site (chave, gravação, assinatura), diga exatamente onde
+  clicar, o que copiar e onde colar.
+- Todo custo em US$ vem acompanhado da conversão aproximada em R$.
+- Se o usuário mandar um vídeo dele (pra tom de voz ou referência), transcreva VOCÊ,
+  localmente, com o Whisper instalado na Fase 1 (grátis). Nunca mande o usuário procurar
+  "ferramenta de transcrição online".
+- Detecte você mesmo tudo que der (sistema operacional, Python, FFmpeg já instalados) em
+  vez de perguntar ao usuário.
+
 ## Fase 0 — Entenda o terreno
 
 - Leia o `SKILL.md` inteiro antes de começar.
@@ -57,7 +80,23 @@ Pré-requisitos de conta (confirme com o usuário ANTES de testar):
   US$ 4/min de vídeo 1080p gerado via API.
 - **Kling:** chaves de API ativas. Custo de referência: ~US$ 0,42/clipe de 5s (std).
 
-## Fase 3 — Personalização (IDs e voz)
+### Se o usuário está começando do ZERO (sem voz clonada, sem avatar)
+
+Não trave o setup: guie a criação na ordem abaixo, avisando que essas são as duas únicas
+partes que dependem de gravação própria e levam mais tempo que o resto:
+
+1. **Voz clonada (ElevenLabs):** assinar um plano que inclua clonagem de voz e criar a voz
+   em Voices, seguindo o fluxo do próprio site. Orientações de gravação que você deve
+   repassar: áudio só com a voz (sem música, sem eco, sem outra pessoa falando), tom natural
+   de conversa, como se estivesse gravando um vídeo pro Instagram. A clonagem Instant
+   (poucos minutos de áudio) serve pra começar hoje; a Professional (exige bem mais áudio e
+   demora pra processar) dá o melhor resultado e pode ser feita como upgrade depois.
+2. **Avatar (HeyGen):** criar o "digital twin" (Avatar IV/V) seguindo o fluxo do site, que
+   pede uma gravação em vídeo do usuário e um vídeo de consentimento. Depois, comprar
+   crédito de API em Settings > API. Explique: é um saldo pré-pago SEPARADO da mensalidade
+   do site; a mensalidade sozinha não faz a skill funcionar.
+3. Enquanto a clonagem e o avatar processam, adiante o resto (Fase 1, as outras chaves da
+   Fase 2 e a entrevista de tom da Fase 3).
 
 1. **Voz ElevenLabs e avatar HeyGen (IDs centralizados):** desde a criação de `scripts/comum.py`,
    `AVATAR_ERIC_2026` e `VOICE_ELEVEN_ERIC` moram num único lugar, importado por
@@ -84,10 +123,18 @@ Pré-requisitos de conta (confirme com o usuário ANTES de testar):
    speaker-recognition do sherpa-onnx (github.com/k2-fsa/sherpa-onnx, ex:
    `3dspeaker_speech_eres2net_*.onnx`) e atualize `DEFAULT_REF`/`DEFAULT_MODEL` em
    `scripts/verificar_voz.py`.
-3. **Tom de voz do roteiro:** `references/voz-eric.md` descreve o tom do Eric. Entreviste o
-   usuário (nicho, público, bordões, o que ele NUNCA falaria, 2-3 exemplos de fala real) e
-   REESCREVA o arquivo pro tom dele (pode renomear pra `voz-do-usuario.md`, ajuste as
-   referências no SKILL.md).
+3. **Tom de voz do roteiro:** `references/voz-eric.md` descreve o tom do Eric e precisa ser
+   REESCRITO pro tom DESTE usuário (pode renomear pra `voz-do-usuario.md`, ajustando as
+   referências no SKILL.md). A qualidade de todo roteiro futuro depende do material coletado
+   aqui. Colete nesta ordem de preferência:
+   - **(a) Fala real dele:** peça 3 a 5 vídeos em que ele aparece falando (Reels antigos,
+     stories, aula gravada, até áudio/vídeo de WhatsApp serve). Transcreva você, localmente,
+     com o Whisper da Fase 1 (grátis, sem ferramenta externa) e extraia: vocabulário,
+     bordões, ritmo, como ele abre e fecha uma ideia.
+   - **(b) Texto que ele mesmo escreveu:** legendas de posts, e-mails, mensagens longas.
+   - **(c) Entrevista guiada** (sempre, pra fechar as lacunas): nicho, público, 3 bordões,
+     palavras e clichês que ele NUNCA usaria, e como ele explicaria o produto dele pra um
+     amigo, em voz alta. Registre no arquivo frases INTEIRAS de exemplo, não só adjetivos.
 4. **Etapa 9 (página de CTA):** o SKILL.md publica numa biblioteca de conteúdos privada do
    autor original (MCP `biblioteca`), que NÃO vem neste repo. Pergunte ao usuário o que ele
    prefere: (a) publicar no Notion dele via MCP oficial, (b) pular a etapa, ou (c) se ele
